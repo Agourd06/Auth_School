@@ -1,6 +1,6 @@
-import { Controller, Post, Body, Param, HttpCode, HttpStatus, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Param, HttpCode, HttpStatus, UseGuards, Request, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from './dto/auth.dto';
+import { LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordDto, ResetPasswordWithTokenDto, ChangePasswordDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -26,16 +26,16 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
-    return await this.authService.sendPasswordResetEmail(forgotPasswordDto);
+    return await this.authService.forgotPassword(forgotPasswordDto.email);
   }
 
-  @Post('reset-password/:token')
+  @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async resetPassword(
-    @Param('token') token: string,
-    @Body() resetPasswordDto: ResetPasswordDto,
+    @Query('token') token: string,
+    @Body() resetPasswordDto: ResetPasswordWithTokenDto,
   ) {
-    return await this.authService.resetPassword(token, resetPasswordDto);
+    return await this.authService.resetPassword(token, resetPasswordDto.password);
   }
 
   @Post('change-password')

@@ -1,15 +1,18 @@
 import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import * as nodemailer from 'nodemailer';
 import { UsersService } from '../users/users.service';
-import { LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from './dto/auth.dto';
+import { MailService } from '../mail/mail.service';
+import { LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordDto, ResetPasswordWithTokenDto, ChangePasswordDto } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    private configService: ConfigService,
+    private mailService: MailService,
   ) {}
 
   async login(loginDto: LoginDto) {
@@ -41,35 +44,35 @@ export class AuthService {
     return await this.usersService.create(registerDto);
   }
 
-  async sendPasswordResetEmail(forgotPasswordDto: ForgotPasswordDto) {
+  async forgotPassword(email: string) {
     try {
-      const user = await this.usersService.findByEmail(forgotPasswordDto.email);
+      const user = await this.usersService.findByEmail(email);
 
       const payload = {
         userId: user.id,
+        email: user.email,
       };
 
-      const resetToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-
-      // Email configuration
-      const transporter = nodemailer.createTransporter({
-        service: 'Gmail',
-        auth: {
-          user: process.env.EMAIL,
-          pass: process.env.EMAIL_PASSWORD,
-        },
+      const resetToken = this.jwtService.sign(payload, { 
+        secret: this.configService.get<string>('RESET_TOKEN_SECRET'),
+        expiresIn: '15m' 
       });
 
-      const resetURL = `http://localhost:5173/auth/reset?token=${resetToken}`;
-      const mailOptions = {
-        to: user.email,
-        from: process.env.EMAIL,
-        subject: 'Password Reset',
-        // html
-      };
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+      const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
-      await transporter.sendMail(mailOptions);
-      return { message: 'Password reset email sent' };
+      const html = `
+        <h2>Password Reset Request</h2>
+        <p>Hello ${user.username},</p>
+        <p>You have requested to reset your password. Click the link below to reset it:</p>
+        <a href="${resetLink}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
+        <p>This link will expire in 15 minutes.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+      `;
+
+      await this.mailService.sendMail(user.email, 'Password Reset Request', html);
+      
+      return { message: 'Reset link sent to your email' };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw new NotFoundException('User not found');
@@ -78,22 +81,27 @@ export class AuthService {
     }
   }
 
-  async resetPassword(token: string, resetPasswordDto: ResetPasswordDto) {
+  async resetPassword(token: string, newPassword: string) {
     try {
-      // Validate password confirmation
-      if (resetPasswordDto.password !== resetPasswordDto.confirmPassword) {
-        throw new UnauthorizedException('Passwords do not match');
-      }
-
-      const decoded = this.jwtService.verify(token);
+      const decoded = this.jwtService.verify(token, {
+        secret: this.configService.get<string>('RESET_TOKEN_SECRET')
+      });
+      
       const user = await this.usersService.findOne(decoded.userId);
       
-      await this.usersService.update(user.id, { password: resetPasswordDto.password });
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
       
-      return { message: 'Password has been reset' };
+      // Update the user's password
+      await this.usersService.update(user.id, { password: hashedPassword });
+      
+      return { message: 'Password successfully updated' };
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
         throw new UnauthorizedException('Token has expired');
+      }
+      if (error.name === 'JsonWebTokenError') {
+        throw new UnauthorizedException('Invalid token');
       }
       throw new UnauthorizedException('Invalid token');
     }
