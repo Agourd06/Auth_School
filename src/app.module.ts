@@ -4,6 +4,10 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { CompanyModule } from './company/company.module';
+import { UsersModule } from './users/users.module';
+import { ModuleModule } from './module/module.module';
+import { CourseModule } from './course/course.module';
 
 @Module({
   imports: [
@@ -21,6 +25,10 @@ import { AuthModule } from './auth/auth.module';
       synchronize: process.env.NODE_ENV !== 'production', // for dev only
     }),
     AuthModule,
+    CompanyModule,
+    UsersModule,
+    ModuleModule,
+    CourseModule,
   ],
   controllers: [AppController],
   providers: [AppService],

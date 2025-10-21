@@ -10,8 +10,6 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
-    console.log('JWT SECRET:', process.env.PORT);
-
     return await this.authService.login(loginDto);
   }
 

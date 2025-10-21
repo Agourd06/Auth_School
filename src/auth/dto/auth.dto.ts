@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, Matches } from 'class-validator';
+import { IsEmail, IsString, MinLength, Matches, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
 
 export class LoginDto {
   @IsEmail({}, { message: 'Please provide a valid email address' })
@@ -7,6 +7,7 @@ export class LoginDto {
   @IsString({ message: 'Password must be a string' })
   @MinLength(6, { message: 'Password must be at least 6 characters long' })
   password: string;
+  
 }
 
 export class RegisterDto {
@@ -16,6 +17,15 @@ export class RegisterDto {
   @IsString({ message: 'Password must be a string' })
   @MinLength(6, { message: 'Password must be at least 6 characters long' })
   password: string;
+  
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+
+  @IsEnum(['user', 'admin'], { message: 'Role must be either "user" or "admin"' })
+  @IsOptional()
+  role?: 'user' | 'admin';
 }
 
 export class ForgotPasswordDto {
