@@ -124,6 +124,36 @@ All paginated endpoints return data in the following format:
 - Efficient pagination using `skip()` and `take()` methods
 - Left joins for related data to avoid N+1 queries
 
+## 🎯 **Drag-and-Drop Course Management**
+
+The system now supports drag-and-drop interfaces for managing course-module relationships:
+
+### **Module-Centric View**
+- **GET `/module/:id/courses`** - Get assigned/unassigned courses for a module
+- **POST `/module/:id/courses`** - Batch assign/unassign courses to/from a module
+- **POST `/module/:id/courses/:courseId`** - Add a single course to a module
+- **DELETE `/module/:id/courses/:courseId`** - Remove a single course from a module
+
+### **Course-Centric View**
+- **GET `/course/:id/modules`** - Get assigned/unassigned modules for a course
+- **POST `/course/:id/modules`** - Batch assign/unassign modules to/from a course
+- **POST `/course/:id/modules/:moduleId`** - Add a single module to a course
+- **DELETE `/course/:id/modules/:moduleId`** - Remove a single module from a course
+
+### **Frontend Integration**
+These endpoints are designed for drag-and-drop interfaces where:
+- **Left Column**: Unassigned items (courses or modules)
+- **Right Column**: Assigned items (courses or modules)
+- **Single Drag**: Use individual endpoints (`POST /:id/courses/:courseId`)
+- **Multiple Drag**: Use batch endpoints (`POST /:id/courses` with add/remove arrays)
+- **Real-time Updates**: Immediate feedback on successful operations
+
+### **Database Safety**
+- All operations use database transactions for data integrity
+- Duplicate prevention with `INSERT IGNORE` statements
+- Proper foreign key constraints with CASCADE delete
+- Batch operations for optimal performance
+
 
 
 ### Authentication Endpoints
@@ -411,6 +441,94 @@ Add module to course.
 #### DELETE `/course/:id/modules/:moduleId`
 Remove module from course.
 
+#### GET `/course/:id/modules`
+Get modules assigned and unassigned to a course for drag-and-drop interface.
+
+**Response:**
+```json
+{
+  "assigned": [
+    {
+      "id": 1,
+      "title": "React Fundamentals",
+      "description": "Learn React basics",
+      "volume": 30,
+      "coefficient": 0.1,
+      "status": 1,
+      "company_id": 1,
+      "company": { "id": 1, "name": "Tech Corp" },
+      "created_at": "2024-01-01T00:00:00.000Z",
+      "updated_at": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "unassigned": [
+    {
+      "id": 2,
+      "title": "Node.js Advanced",
+      "description": "Advanced Node.js concepts",
+      "volume": 45,
+      "coefficient": 0.2,
+      "status": 1,
+      "company_id": 1,
+      "company": { "id": 1, "name": "Tech Corp" },
+      "created_at": "2024-01-01T00:00:00.000Z",
+      "updated_at": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+#### POST `/course/:id/modules`
+Batch assign/unassign modules to/from a course.
+
+**Request Body:**
+```json
+{
+  "add": [1, 2, 3],
+  "remove": [4, 5]
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Module assignments updated successfully",
+  "affected": 5
+}
+```
+
+#### POST `/course/:id/modules/:moduleId`
+Add a single module to a course.
+
+**Response:**
+```json
+{
+  "message": "Module successfully assigned to course",
+  "module": {
+    "id": 1,
+    "title": "React Fundamentals",
+    "description": "Learn React basics",
+    "volume": 30,
+    "coefficient": 0.1,
+    "status": 1,
+    "company_id": 1,
+    "company": { "id": 1, "name": "Tech Corp" },
+    "created_at": "2024-01-01T00:00:00.000Z",
+    "updated_at": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+#### DELETE `/course/:id/modules/:moduleId`
+Remove a single module from a course.
+
+**Response:**
+```json
+{
+  "message": "Module successfully removed from course"
+}
+```
+
 ### Module Management Endpoints
 
 #### GET `/module`
@@ -494,6 +612,94 @@ Add course to module.
 
 #### DELETE `/module/:id/courses/:courseId`
 Remove course from module.
+
+#### GET `/module/:id/courses`
+Get courses assigned and unassigned to a module for drag-and-drop interface.
+
+**Response:**
+```json
+{
+  "assigned": [
+    {
+      "id": 1,
+      "title": "JavaScript Fundamentals",
+      "description": "Learn JavaScript basics",
+      "volume": 40,
+      "coefficient": 0.2,
+      "status": 1,
+      "company_id": 1,
+      "company": { "id": 1, "name": "Tech Corp" },
+      "created_at": "2024-01-01T00:00:00.000Z",
+      "updated_at": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "unassigned": [
+    {
+      "id": 2,
+      "title": "Python Basics",
+      "description": "Learn Python programming",
+      "volume": 35,
+      "coefficient": 0.15,
+      "status": 1,
+      "company_id": 1,
+      "company": { "id": 1, "name": "Tech Corp" },
+      "created_at": "2024-01-01T00:00:00.000Z",
+      "updated_at": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+#### POST `/module/:id/courses`
+Batch assign/unassign courses to/from a module.
+
+**Request Body:**
+```json
+{
+  "add": [1, 2, 3],
+  "remove": [4, 5]
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Course assignments updated successfully",
+  "affected": 5
+}
+```
+
+#### POST `/module/:id/courses/:courseId`
+Add a single course to a module.
+
+**Response:**
+```json
+{
+  "message": "Course successfully assigned to module",
+  "course": {
+    "id": 1,
+    "title": "JavaScript Fundamentals",
+    "description": "Learn JavaScript basics",
+    "volume": 40,
+    "coefficient": 0.2,
+    "status": 1,
+    "company_id": 1,
+    "company": { "id": 1, "name": "Tech Corp" },
+    "created_at": "2024-01-01T00:00:00.000Z",
+    "updated_at": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+#### DELETE `/module/:id/courses/:courseId`
+Remove a single course from a module.
+
+**Response:**
+```json
+{
+  "message": "Course successfully removed from module"
+}
+```
 
 ### General Endpoints
 

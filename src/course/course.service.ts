@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { CourseQueryDto } from './dto/course-query.dto';
+import { ModuleAssignmentDto, CourseModulesResponseDto } from './dto/module-assignment.dto';
 import { Course } from './entities/course.entity';
 import { Module } from '../module/entities/module.entity';
 import { PaginatedResponseDto } from '../common/dto/pagination.dto';
@@ -16,6 +17,7 @@ export class CourseService {
     private courseRepository: Repository<Course>,
     @InjectRepository(Module)
     private moduleRepository: Repository<Module>,
+    private dataSource: DataSource,
   ) {}
 
   async create(createCourseDto: CreateCourseDto): Promise<Course> {
@@ -108,34 +110,188 @@ export class CourseService {
     await this.courseRepository.remove(course);
   }
 
-  async addModuleToCourse(courseId: number, moduleId: number): Promise<Course> {
-    const course = await this.findOne(courseId);
-    const module = await this.moduleRepository.findOne({ where: { id: moduleId } });
+
+  /**
+   * Get modules assigned and unassigned to a course for drag-and-drop interface
+   */
+  async getCourseModules(courseId: number): Promise<CourseModulesResponseDto> {
+    // Verify course exists
+    await this.findOne(courseId);
+
+    // Get assigned modules
+    const assignedModules = await this.courseRepository
+      .createQueryBuilder('course')
+      .leftJoinAndSelect('course.modules', 'modules')
+      .leftJoinAndSelect('modules.company', 'company')
+      .where('course.id = :courseId', { courseId })
+      .getOne();
+
+    // Get all modules not assigned to this course
+    const unassignedModules = await this.moduleRepository
+      .createQueryBuilder('module')
+      .leftJoinAndSelect('module.company', 'company')
+      .where('module.id NOT IN (SELECT mc.module_id FROM module_course mc WHERE mc.course_id = :courseId)', { courseId })
+      .orderBy('module.created_at', 'DESC')
+      .getMany();
+
+    return {
+      assigned: assignedModules?.modules || [],
+      unassigned: unassignedModules,
+    };
+  }
+
+  /**
+   * Batch assign/unassign modules to/from a course
+   */
+  async batchManageCourseModules(courseId: number, assignmentDto: ModuleAssignmentDto): Promise<{ message: string; affected: number }> {
+    // Verify course exists
+    await this.findOne(courseId);
+
+    if (!assignmentDto.add?.length && !assignmentDto.remove?.length) {
+      throw new BadRequestException('At least one operation (add or remove) must be specified');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      let affectedCount = 0;
+
+      // Handle module additions
+      if (assignmentDto.add?.length) {
+        // Verify all modules exist
+        const modulesToAdd = await this.moduleRepository.findByIds(assignmentDto.add);
+        if (modulesToAdd.length !== assignmentDto.add.length) {
+          const foundIds = modulesToAdd.map(m => m.id);
+          const missingIds = assignmentDto.add.filter(id => !foundIds.includes(id));
+          throw new NotFoundException(`Modules with IDs ${missingIds.join(', ')} not found`);
+        }
+
+        // Insert new relationships
+        for (const moduleId of assignmentDto.add) {
+          await queryRunner.query(
+            'INSERT IGNORE INTO module_course (module_id, course_id, created_at) VALUES (?, ?, NOW())',
+            [moduleId, courseId]
+          );
+        }
+        affectedCount += assignmentDto.add.length;
+      }
+
+      // Handle module removals
+      if (assignmentDto.remove?.length) {
+        // Remove relationships
+        await queryRunner.query(
+          'DELETE FROM module_course WHERE course_id = ? AND module_id IN (?)',
+          [courseId, assignmentDto.remove]
+        );
+        affectedCount += assignmentDto.remove.length;
+      }
+
+      await queryRunner.commitTransaction();
+
+      return {
+        message: 'Module assignments updated successfully',
+        affected: affectedCount,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Add a single module to a course
+   */
+  async addModuleToCourse(courseId: number, moduleId: number): Promise<{ message: string; module: any }> {
+    // Verify course exists
+    await this.findOne(courseId);
+
+    // Verify module exists
+    const module = await this.moduleRepository.findOne({ 
+      where: { id: moduleId },
+      relations: ['company']
+    });
     
     if (!module) {
       throw new NotFoundException(`Module with ID ${moduleId} not found`);
     }
-    
-    if (!course.modules) {
-      course.modules = [];
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Check if relationship already exists
+      const existingRelation = await queryRunner.query(
+        'SELECT * FROM module_course WHERE course_id = ? AND module_id = ?',
+        [courseId, moduleId]
+      );
+
+      if (existingRelation.length > 0) {
+        throw new BadRequestException('Module is already assigned to this course');
+      }
+
+      // Insert new relationship
+      await queryRunner.query(
+        'INSERT INTO module_course (module_id, course_id, created_at) VALUES (?, ?, NOW())',
+        [moduleId, courseId]
+      );
+
+      await queryRunner.commitTransaction();
+
+      return {
+        message: 'Module successfully assigned to course',
+        module: module,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-    
-    if (!course.modules.find(m => m.id === moduleId)) {
-      course.modules.push(module);
-      return await this.courseRepository.save(course);
-    }
-    
-    return course;
   }
 
-  async removeModuleFromCourse(courseId: number, moduleId: number): Promise<Course> {
-    const course = await this.findOne(courseId);
-    
-    if (course.modules) {
-      course.modules = course.modules.filter(m => m.id !== moduleId);
-      return await this.courseRepository.save(course);
+  /**
+   * Remove a single module from a course
+   */
+  async removeModuleFromCourse(courseId: number, moduleId: number): Promise<{ message: string }> {
+    // Verify course exists
+    await this.findOne(courseId);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Check if relationship exists
+      const existingRelation = await queryRunner.query(
+        'SELECT * FROM module_course WHERE course_id = ? AND module_id = ?',
+        [courseId, moduleId]
+      );
+
+      if (existingRelation.length === 0) {
+        throw new BadRequestException('Module is not assigned to this course');
+      }
+
+      // Remove relationship
+      await queryRunner.query(
+        'DELETE FROM module_course WHERE course_id = ? AND module_id = ?',
+        [courseId, moduleId]
+      );
+
+      await queryRunner.commitTransaction();
+
+      return {
+        message: 'Module successfully removed from course',
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-    
-    return course;
   }
 }
