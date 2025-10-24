@@ -2,6 +2,7 @@ import { Controller, Post, Body, Param, HttpCode, HttpStatus, UseGuards, Request
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordDto, ResetPasswordWithTokenDto, ChangePasswordDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { log } from 'console';
 
 @Controller('auth')
 export class AuthController {
@@ -16,7 +17,9 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() registerDto: RegisterDto) {
+    log('registerDto');
     const user = await this.authService.register(registerDto);
+    log
     return {
       message: 'User created successfully',
       user,

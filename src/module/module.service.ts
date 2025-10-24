@@ -3,8 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { UpdateModuleDto } from './dto/update-module.dto';
+import { ModuleQueryDto } from './dto/module-query.dto';
 import { Module } from './entities/module.entity';
 import { Course } from '../course/entities/course.entity';
+import { PaginatedResponseDto } from '../common/dto/pagination.dto';
+import { PaginationService } from '../common/services/pagination.service';
 
 @Injectable()
 export class ModuleService {
@@ -36,6 +39,33 @@ export class ModuleService {
     return await this.moduleRepository.find({
       relations: ['company', 'courses'],
     });
+  }
+
+  async findAllWithPagination(queryDto: ModuleQueryDto): Promise<PaginatedResponseDto<Module>> {
+    const { page = 1, limit = 10, search, status } = queryDto;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.moduleRepository
+      .createQueryBuilder('module')
+      .leftJoinAndSelect('module.company', 'company')
+      .leftJoinAndSelect('module.courses', 'courses')
+      .skip(skip)
+      .take(limit)
+      .orderBy('module.created_at', 'DESC');
+
+    // Add search filter
+    if (search) {
+      queryBuilder.andWhere('module.intitule LIKE :search', { search: `%${search}%` });
+    }
+
+    // Add status filter
+    if (status !== undefined) {
+      queryBuilder.andWhere('module.statut = :status', { status });
+    }
+
+    const [modules, total] = await queryBuilder.getManyAndCount();
+
+    return PaginationService.createResponse(modules, page, limit, total);
   }
 
   async findOne(id: number): Promise<Module> {

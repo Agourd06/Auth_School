@@ -17,7 +17,7 @@ export class Module {
   volume: number;
 
   @Column({ type: 'double', nullable: true })
-  confusion: number;
+  coefficient: number;
 
   @Column({ type: 'tinyint', default: 1, name: 'statut' })
   status: number;

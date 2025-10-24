@@ -3,7 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UsersQueryDto } from './dto/users-query.dto';
 import { User } from './entities/user.entity';
+import { PaginatedResponseDto } from '../common/dto/pagination.dto';
+import { PaginationService } from '../common/services/pagination.service';
 
 @Injectable()
 export class UsersService {
@@ -21,6 +24,30 @@ export class UsersService {
     return await this.userRepository.find({
       relations: ['company'],
     });
+  }
+
+  async findAllWithPagination(queryDto: UsersQueryDto): Promise<PaginatedResponseDto<User>> {
+    const { page = 1, limit = 10, search } = queryDto;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.company', 'company')
+      .skip(skip)
+      .take(limit)
+      .orderBy('user.created_at', 'DESC');
+
+    // Add search filter for email or username
+    if (search) {
+      queryBuilder.andWhere(
+        '(user.email LIKE :search OR user.username LIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    const [users, total] = await queryBuilder.getManyAndCount();
+
+    return PaginationService.createResponse(users, page, limit, total);
   }
 
   async findOne(id: number): Promise<User> {

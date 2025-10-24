@@ -1,10 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
+import { CourseQueryDto } from './dto/course-query.dto';
 import { Course } from './entities/course.entity';
 import { Module } from '../module/entities/module.entity';
+import { PaginatedResponseDto } from '../common/dto/pagination.dto';
+import { PaginationService } from '../common/services/pagination.service';
 
 @Injectable()
 export class CourseService {
@@ -36,6 +39,33 @@ export class CourseService {
     return await this.courseRepository.find({
       relations: ['company', 'modules'],
     });
+  }
+
+  async findAllWithPagination(queryDto: CourseQueryDto): Promise<PaginatedResponseDto<Course>> {
+    const { page = 1, limit = 10, search, status } = queryDto;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.courseRepository
+      .createQueryBuilder('course')
+      .leftJoinAndSelect('course.company', 'company')
+      .leftJoinAndSelect('course.modules', 'modules')
+      .skip(skip)
+      .take(limit)
+      .orderBy('course.created_at', 'DESC');
+
+    // Add search filter
+    if (search) {
+      queryBuilder.andWhere('course.intitule LIKE :search', { search: `%${search}%` });
+    }
+
+    // Add status filter
+    if (status !== undefined) {
+      queryBuilder.andWhere('course.statut = :status', { status });
+    }
+
+    const [courses, total] = await queryBuilder.getManyAndCount();
+
+    return PaginationService.createResponse(courses, page, limit, total);
   }
 
   async findOne(id: number): Promise<Course> {

@@ -14,7 +14,7 @@ export class CreateCourseDto {
 
   @IsOptional()
   @IsNumber()
-  confusion?: number;
+  coefficient?: number;
 
   @IsOptional()
   @IsNumber()

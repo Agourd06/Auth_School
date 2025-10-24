@@ -14,7 +14,7 @@ export class CreateModuleDto {
 
   @IsOptional()
   @IsNumber()
-  confusion?: number;
+  coefficient?: number;
 
   @IsOptional()
   @IsNumber()
