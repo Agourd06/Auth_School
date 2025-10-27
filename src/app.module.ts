@@ -8,6 +8,7 @@ import { CompanyModule } from './company/company.module';
 import { UsersModule } from './users/users.module';
 import { ModuleModule } from './module/module.module';
 import { CourseModule } from './course/course.module';
+import { SchoolYearsModule } from './school-years/school-years.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { CourseModule } from './course/course.module';
     UsersModule,
     ModuleModule,
     CourseModule,
+    SchoolYearsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

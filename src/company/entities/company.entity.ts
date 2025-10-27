@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { User } from '../../users/entities/user.entity';
 import { Module } from '../../module/entities/module.entity';
 import { Course } from '../../course/entities/course.entity';
+import { SchoolYear } from 'src/school-years/entities/school-year.entity';
 
 @Entity('companies')
 export class Company {
@@ -37,4 +38,8 @@ export class Company {
 
   @OneToMany(() => Course, course => course.company)
   courses: Course[];
+
+  @OneToMany(() => SchoolYear, (schoolYear) => schoolYear.company)
+  schoolYears: SchoolYear[];
+
 }

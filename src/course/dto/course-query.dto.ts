@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsInt, Min } from 'class-validator';
+import { IsOptional, IsString, IsInt, Min, IsNumber, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
@@ -7,9 +7,9 @@ export class CourseQueryDto extends PaginationDto {
   @IsString()
   search?: string;
 
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  status?: number;
+ @IsOptional()
+   @IsNumber()
+   @Min(-2)
+   @Max(2)
+   status?: number;
 }

@@ -13,12 +13,12 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private mailService: MailService,
-  ) {}
+  ) { }
 
   async login(loginDto: LoginDto) {
     try {
       const user = await this.usersService.findByEmail(loginDto.email);
-      
+
       const passwordMatch = await bcrypt.compare(loginDto.password, user.password);
       if (!passwordMatch) {
         throw new UnauthorizedException('Invalid credentials');
@@ -30,7 +30,11 @@ export class AuthService {
 
       return {
         token: this.jwtService.sign(payload, { expiresIn: '1h' }),
-        email: user.email,
+        user: {
+          email: user.email,
+          username: user.username,
+          role: user.role,
+        }
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -53,9 +57,9 @@ export class AuthService {
         email: user.email,
       };
 
-      const resetToken = this.jwtService.sign(payload, { 
+      const resetToken = this.jwtService.sign(payload, {
         secret: this.configService.get<string>('RESET_TOKEN_SECRET'),
-        expiresIn: '15m' 
+        expiresIn: '15m'
       });
 
       const frontendUrl = this.configService.get<string>('FRONTEND_URL');
@@ -71,7 +75,7 @@ export class AuthService {
       `;
 
       await this.mailService.sendMail(user.email, 'Password Reset Request', html);
-      
+
       return { message: 'Reset link sent to your email' };
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -86,15 +90,15 @@ export class AuthService {
       const decoded = this.jwtService.verify(token, {
         secret: this.configService.get<string>('RESET_TOKEN_SECRET')
       });
-      
+
       const user = await this.usersService.findOne(decoded.userId);
-      
+
       // Hash the new password
       const hashedPassword = await bcrypt.hash(newPassword, 10);
-      
+
       // Update the user's password
       await this.usersService.update(user.id, { password: hashedPassword });
-      
+
       return { message: 'Password successfully updated' };
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
@@ -123,7 +127,7 @@ export class AuthService {
 
     // Update password
     await this.usersService.update(user.id, { password: changePasswordDto.newPassword });
-    
+
     return { message: 'Password has been changed successfully' };
   }
 }
