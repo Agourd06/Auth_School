@@ -94,7 +94,7 @@ npm run format
 
 ## 🔍 Pagination, Search & Filtering
 
-All list endpoints (`/users`, `/course`, `/module`) now support advanced pagination, search, and filtering capabilities:
+All list endpoints (`/users`, `/course`, `/module` , `/school-years` , `/school-year-periods`  ) now support advanced pagination, search, and filtering capabilities:
 
 ### Common Features
 - **Pagination**: Default 10 items per page, configurable via `limit` parameter (max: 100)
@@ -701,33 +701,108 @@ Remove a single course from a module.
 }
 ```
 
-### General Endpoints
+## School Year Management Endpoints
 
-#### GET `/`
-Get application status.
+Base path: /school-years
 
-**Response:**
-```json
-"Hello World!"
-```
-
-#### GET `/profile`
-Get user profile (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Response:**
+1) Create — POST /school-years
+Request JSON:
 ```json
 {
-  "message": "This is a protected route",
-  "user": {
-    "id": 1,
-    "email": "user@example.com"
-  }
+  "companyId": 1,
+  "title": "2025-2026",
+  "start_date": "2025-09-01",
+  "end_date": "2026-06-30",
+  "status": 1
 }
+```
+Notes:
+- status mapping: 0=disabled, 1=active, 2=pending, -1=archived, -2=deleted
+- Validation: start_date and end_date must be valid ISO date strings and end_date must be greater than start_date.
+Example curl:
+```bash
+curl -X POST http://localhost:3000/school-years \
+  -H "Content-Type: application/json" \
+  -d '{"companyId":1,"title":"2025-2026","start_date":"2025-09-01","end_date":"2026-06-30","status":1}'
+```
+
+2) Get all — GET /school-years
+Response: array of school year objects (includes company relation).
+
+3) Get one — GET /school-years/:id
+Path param: id (number). Returns single school year or 404.
+
+4) Update — PATCH /school-years/:id
+Request JSON: partial fields allowed. Dates validated (end_date > start_date).
+Example:
+```json
+{
+  "title": "2025-2026 (updated)",
+  "end_date": "2026-07-01",
+  "status": "archived"
+}
+```
+
+5) Delete — DELETE /school-years/:id
+Removes the school year (returns removed entity or 404).
+
+---
+
+## School Year Periods (Semesters) Management Endpoints
+
+Base path: /school-year-periods
+
+This resource represents periods (semesters) tied to a SchoolYear. Each period has the same fields as SchoolYear plus a foreign key schoolYearId.
+
+1) Create — POST /school-year-periods
+Request JSON:
+```json
+{
+  "schoolYearId": 10,
+  "title": "Semester 1",
+  "start_date": "2025-09-01",
+  "end_date": "2025-12-20",
+  "status": 1
+}
+```
+Notes:
+- schoolYearId must reference an existing school year.
+- Dates must be valid and end_date > start_date.
+- Status mapping same as SchoolYear.
+Example curl:
+```bash
+curl -X POST http://localhost:3000/school-year-periods \
+  -H "Content-Type: application/json" \
+  -d '{"schoolYearId":10,"title":"Semester 1","start_date":"2025-09-01","end_date":"2025-12-20","status":1}'
+```
+
+2) Get all — GET /school-year-periods
+Response: array of periods with their parent schoolYear.
+
+3) Get one — GET /school-year-periods/:id
+Path param: id (number). Returns single period or 404.
+
+4) Update — PATCH /school-year-periods/:id
+Request JSON: partial fields allowed. Can change schoolYearId (validated) and dates (validated).
+Example:
+```json
+{
+  "title": "Semester 1 (revised)",
+  "end_date": "2025-12-22"
+}
+```
+
+5) Delete — DELETE /school-year-periods/:id
+Removes the period (returns removed entity or 404).
+
+---
+
+Validation & Behavior Notes
+- All create/update endpoints return 400 for invalid payloads (invalid dates or end_date <= start_date).
+- Relations: SchoolYear includes company (eager) and periods (one-to-many). SchoolYearPeriod has a many-to-one relation back to SchoolYear (ON DELETE CASCADE).
+- Use JWT auth header if your app requires authentication for these endpoints:
+```
+Authorization: Bearer <jwt_token>
 ```
 
 ## 🔐 Authentication

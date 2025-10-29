@@ -1,5 +1,6 @@
 import { Company } from 'src/company/entities/company.entity';
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
+import { SchoolYearPeriod } from 'src/school-year-periods/entities/school-year-period.entity';
 
 @Entity('school_years')
 export class SchoolYear {
@@ -20,4 +21,7 @@ export class SchoolYear {
 
   @ManyToOne(() => Company, (company) => company.schoolYears, { eager: true })
   company: Company;
+
+  @OneToMany(() => SchoolYearPeriod, (period) => period.schoolYear, { cascade: true })
+  periods: SchoolYearPeriod[];
 }

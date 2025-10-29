@@ -9,6 +9,9 @@ import { UsersModule } from './users/users.module';
 import { ModuleModule } from './module/module.module';
 import { CourseModule } from './course/course.module';
 import { SchoolYearsModule } from './school-years/school-years.module';
+import { SchoolYearPeriodsModule } from './school-year-periods/school-year-periods.module';
+import { ClassRoomsModule } from './class-rooms/class-rooms.module';
+import { StudentsModule } from './students/students.module';
 
 @Module({
   imports: [
@@ -31,6 +34,9 @@ import { SchoolYearsModule } from './school-years/school-years.module';
     ModuleModule,
     CourseModule,
     SchoolYearsModule,
+    SchoolYearPeriodsModule,
+    ClassRoomsModule,
+    StudentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
