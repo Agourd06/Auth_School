@@ -16,6 +16,9 @@ import { ClassRoomsModule } from './class-rooms/class-rooms.module';
 import { StudentsModule } from './students/students.module';
 import { TeachersModule } from './teachers/teachers.module';
 import { AdministratorsModule } from './administrators/administrators.module';
+import { StudentDiplomeModule } from './student-diplome/student-diplome.module';
+import { StudentContactModule } from './student-contact/student-contact.module';
+import { StudentlinktypeModule } from './studentlinktype/studentlinktype.module';
 
 @Module({
   imports: [
@@ -47,6 +50,9 @@ import { AdministratorsModule } from './administrators/administrators.module';
     StudentsModule,
     TeachersModule,
     AdministratorsModule,
+    StudentDiplomeModule,
+    StudentContactModule,
+    StudentlinktypeModule,
   ],
   controllers: [AppController],
   providers: [AppService],
