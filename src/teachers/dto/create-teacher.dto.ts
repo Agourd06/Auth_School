@@ -1,7 +1,6 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsString, IsNumber, IsDateString } from 'class-validator';
 
-export class CreateStudentDto {
-
+export class CreateTeacherDto {
   @IsOptional()
   @IsString()
   gender?: string;

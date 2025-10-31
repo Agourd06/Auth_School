@@ -12,6 +12,8 @@ import { SchoolYearsModule } from './school-years/school-years.module';
 import { SchoolYearPeriodsModule } from './school-year-periods/school-year-periods.module';
 import { ClassRoomsModule } from './class-rooms/class-rooms.module';
 import { StudentsModule } from './students/students.module';
+import { TeachersModule } from './teachers/teachers.module';
+import { AdministratorsModule } from './administrators/administrators.module';
 
 @Module({
   imports: [
@@ -37,6 +39,8 @@ import { StudentsModule } from './students/students.module';
     SchoolYearPeriodsModule,
     ClassRoomsModule,
     StudentsModule,
+    TeachersModule,
+    AdministratorsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

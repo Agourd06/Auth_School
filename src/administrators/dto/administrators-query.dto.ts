@@ -2,7 +2,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { IsOptional, IsString, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class StudentsQueryDto extends PaginationDto {
+export class AdministratorsQueryDto extends PaginationDto {
   @IsOptional()
   @IsString()
   search?: string; // first_name, last_name, email
@@ -17,5 +17,6 @@ export class StudentsQueryDto extends PaginationDto {
   @IsNumber()
   class_room_id?: number;
 }
+
 
 

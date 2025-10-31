@@ -2,8 +2,8 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDa
 import { Company } from '../../company/entities/company.entity';
 import { ClassRoom } from '../../class-rooms/entities/class-room.entity';
 
-@Entity('students')
-export class Student {
+@Entity('teachers')
+export class Teacher {
   @PrimaryGeneratedColumn()
   id: number;
 

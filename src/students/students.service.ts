@@ -34,7 +34,7 @@ export class StudentsService {
 
     if (query.search) {
       qb.andWhere(
-        '(s.code LIKE :search OR s.first_name LIKE :search OR s.last_name LIKE :search OR s.email LIKE :search)',
+        '(s.first_name LIKE :search OR s.last_name LIKE :search OR s.email LIKE :search)',
         { search: `%${query.search}%` },
       );
     }
