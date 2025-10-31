@@ -1,4 +1,5 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsString, IsNumber, IsDateString } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateAdministratorDto {
   @IsOptional()
@@ -41,14 +42,15 @@ export class CreateAdministratorDto {
   nationality?: string;
 
   @IsOptional()
-  @IsString()
   picture?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   company_id?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   class_room_id?: number;
 }
