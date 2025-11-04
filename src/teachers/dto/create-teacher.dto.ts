@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, IsNumber, IsDateString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, IsNumber, IsDateString, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateTeacherDto {
@@ -43,6 +43,13 @@ export class CreateTeacherDto {
 
   @IsOptional()
   picture?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-2)
+  @Max(2)
+  status?: number;
 
   @IsOptional()
   @Type(() => Number)

@@ -41,6 +41,7 @@ export class AdministratorsService {
 
     if (query.company_id) qb.andWhere('a.company_id = :company_id', { company_id: query.company_id });
     if (query.class_room_id) qb.andWhere('a.class_room_id = :class_room_id', { class_room_id: query.class_room_id });
+    if (query.status !== undefined) qb.andWhere('a.status = :status', { status: query.status });
 
     qb.skip((page - 1) * limit).take(limit).orderBy('a.id', 'DESC');
 

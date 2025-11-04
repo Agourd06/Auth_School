@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, IsDateString, IsNumber } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, IsDateString, IsNumber, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateStudentContactDto {
@@ -38,5 +38,17 @@ export class CreateStudentContactDto {
   @Type(() => Number)
   @IsNumber()
   studentlinktypeId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-2)
+  @Max(2)
+  status?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  company_id?: number;
 }
 

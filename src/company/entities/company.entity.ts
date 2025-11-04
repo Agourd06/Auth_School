@@ -24,6 +24,9 @@ export class Company {
   @Column({ nullable: true })
   website: string;
 
+  @Column({ type: 'int', nullable: true, name: 'statut', default: 1 })
+  status: number;
+
   @CreateDateColumn()
   created_at: Date;
 

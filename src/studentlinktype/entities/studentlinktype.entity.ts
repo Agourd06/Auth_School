@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Company } from '../../company/entities/company.entity';
 
 @Entity('student_link_types')
 export class StudentLinkType {
@@ -13,6 +14,14 @@ export class StudentLinkType {
 
   @UpdateDateColumn()
   updated_at: Date;
-}
+  
+  @Column({ type: 'int', nullable: true, name: 'statut', default: 1 })
+  status: number;
 
-export class Studentlinktype {}
+  @Column({ nullable: true })
+  company_id: number;
+
+  @ManyToOne(() => Company, { nullable: true })
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
+}

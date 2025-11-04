@@ -27,7 +27,7 @@ export class UsersService {
   }
 
   async findAllWithPagination(queryDto: UsersQueryDto): Promise<PaginatedResponseDto<User>> {
-    const { page = 1, limit = 10, search } = queryDto;
+    const { page = 1, limit = 10, search, status } = queryDto;
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.userRepository
@@ -43,6 +43,10 @@ export class UsersService {
         '(user.email LIKE :search OR user.username LIKE :search)',
         { search: `%${search}%` }
       );
+    }
+
+    if (status !== undefined) {
+      queryBuilder.andWhere('user.status = :status', { status });
     }
 
     const [users, total] = await queryBuilder.getManyAndCount();

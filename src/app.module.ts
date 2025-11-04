@@ -19,6 +19,10 @@ import { AdministratorsModule } from './administrators/administrators.module';
 import { StudentDiplomeModule } from './student-diplome/student-diplome.module';
 import { StudentContactModule } from './student-contact/student-contact.module';
 import { StudentlinktypeModule } from './studentlinktype/studentlinktype.module';
+import { ProgramModule } from './programs/programs.module';
+import { LevelModule } from './level/level.module';
+import { SpecializationsModule } from './specializations/specializations.module';
+import { ClassModule } from './class/class.module';
 
 @Module({
   imports: [
@@ -53,6 +57,10 @@ import { StudentlinktypeModule } from './studentlinktype/studentlinktype.module'
     StudentDiplomeModule,
     StudentContactModule,
     StudentlinktypeModule,
+    ProgramModule,
+    LevelModule,
+    SpecializationsModule,
+    ClassModule,
   ],
   controllers: [AppController],
   providers: [AppService],

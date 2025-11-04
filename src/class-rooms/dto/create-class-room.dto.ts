@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min, Max } from 'class-validator';
 
 export class CreateClassRoomDto {
   @IsString()
@@ -16,4 +16,10 @@ export class CreateClassRoomDto {
   @IsOptional()
   @IsNumber()
   company_id?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-2)
+  @Max(2)
+  status?: number;
 }

@@ -1,4 +1,5 @@
-import { IsString, IsEmail, IsOptional, IsEnum, IsNumber } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsEnum, IsNumber, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateUserDto {
   @IsString()
@@ -17,4 +18,11 @@ export class CreateUserDto {
   @IsOptional()
   @IsNumber()
   company_id?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-2)
+  @Max(2)
+  status?: number;
 }

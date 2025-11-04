@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, IsNumber } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsNumber, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateStudentDiplomeDto {
@@ -36,4 +36,16 @@ export class CreateStudentDiplomeDto {
   @Type(() => Number)
   @IsNumber()
   student_id: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-2)
+  @Max(2)
+  status?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  company_id?: number;
 }

@@ -6,6 +6,7 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
+import { StudentDiplomesQueryDto } from './dto/student-diplomes-query.dto';
 
 @Controller('student-diplome')
 export class StudentDiplomeController {
@@ -59,8 +60,8 @@ export class StudentDiplomeController {
   }
 
   @Get()
-  findAll() {
-    return this.studentDiplomeService.findAll();
+  findAll(@Query() query: StudentDiplomesQueryDto) {
+    return this.studentDiplomeService.findAll(query);
   }
 
   @Get(':id')

@@ -41,6 +41,7 @@ export class TeachersService {
 
     if (query.company_id) qb.andWhere('t.company_id = :company_id', { company_id: query.company_id });
     if (query.class_room_id) qb.andWhere('t.class_room_id = :class_room_id', { class_room_id: query.class_room_id });
+    if (query.status !== undefined) qb.andWhere('t.status = :status', { status: query.status });
 
     qb.skip((page - 1) * limit).take(limit).orderBy('t.id', 'DESC');
 

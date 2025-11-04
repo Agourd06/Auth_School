@@ -4,6 +4,9 @@ import { Repository } from 'typeorm';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { Company } from './entities/company.entity';
+import { CompanyQueryDto } from './dto/company-query.dto';
+import { PaginatedResponseDto } from '../common/dto/pagination.dto';
+import { PaginationService } from '../common/services/pagination.service';
 
 @Injectable()
 export class CompanyService {
@@ -17,10 +20,23 @@ export class CompanyService {
     return await this.companyRepository.save(company);
   }
 
-  async findAll(): Promise<Company[]> {
-    return await this.companyRepository.find({
-      relations: ['users'],
-    });
+  async findAll(query: CompanyQueryDto): Promise<PaginatedResponseDto<Company>> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const qb = this.companyRepository.createQueryBuilder('c').leftJoinAndSelect('c.users', 'users');
+
+    if (query.search) {
+      qb.andWhere('(c.name LIKE :search OR c.email LIKE :search)', { search: `%${query.search}%` });
+    }
+
+    if (query.status !== undefined) {
+      qb.andWhere('c.status = :status', { status: query.status });
+    }
+
+    qb.orderBy('c.id', 'DESC').skip((page - 1) * limit).take(limit);
+
+    const [data, total] = await qb.getManyAndCount();
+    return PaginationService.createResponse(data, page, limit, total);
   }
 
   async findOne(id: number): Promise<Company> {

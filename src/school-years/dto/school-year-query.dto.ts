@@ -22,5 +22,7 @@ export class SchoolYearQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(-2)
+  @Max(2)
   status?: number;
 }

@@ -4,6 +4,9 @@ import { UpdateStudentLinkTypeDto } from './dto/update-studentlinktype.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StudentLinkType } from './entities/studentlinktype.entity';
+import { StudentLinkTypeQueryDto } from './dto/studentlinktype-query.dto';
+import { PaginatedResponseDto } from '../common/dto/pagination.dto';
+import { PaginationService } from '../common/services/pagination.service';
 
 @Injectable()
 export class StudentlinktypeService {
@@ -22,8 +25,16 @@ export class StudentlinktypeService {
     }
   }
 
-  async findAll(): Promise<StudentLinkType[]> {
-    return this.repo.find({ order: { id: 'DESC' } });
+  async findAll(query: StudentLinkTypeQueryDto): Promise<PaginatedResponseDto<StudentLinkType>> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const qb = this.repo.createQueryBuilder('t');
+    if (query.search) qb.andWhere('t.title LIKE :search', { search: `%${query.search}%` });
+    if (query.status !== undefined) qb.andWhere('t.status = :status', { status: query.status });
+    if (query.company_id) qb.andWhere('t.company_id = :company_id', { company_id: query.company_id });
+    qb.skip((page - 1) * limit).take(limit).orderBy('t.id', 'DESC');
+    const [data, total] = await qb.getManyAndCount();
+    return PaginationService.createResponse(data, page, limit, total);
   }
 
   async findOne(id: number): Promise<StudentLinkType> {

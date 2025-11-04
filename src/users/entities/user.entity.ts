@@ -26,6 +26,9 @@ export class User {
   @JoinColumn({ name: 'company_id' })
   company: Company;
   
+  @Column({ type: 'int', nullable: true, name: 'statut', default: 1 })
+  status: number;
+  
   @CreateDateColumn()
   created_at: Date;
 

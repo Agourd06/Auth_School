@@ -1,5 +1,5 @@
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { IsOptional, IsString, IsNumber } from 'class-validator';
+import { IsOptional, IsString, IsNumber, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class AdministratorsQueryDto extends PaginationDto {
@@ -16,6 +16,13 @@ export class AdministratorsQueryDto extends PaginationDto {
   @Type(() => Number)
   @IsNumber()
   class_room_id?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-2)
+  @Max(2)
+  status?: number;
 }
 
 

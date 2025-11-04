@@ -4,6 +4,9 @@ import { UpdateStudentContactDto } from './dto/update-student-contact.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StudentContact } from './entities/student-contact.entity';
+import { StudentContactQueryDto } from './dto/student-contact-query.dto';
+import { PaginatedResponseDto } from '../common/dto/pagination.dto';
+import { PaginationService } from '../common/services/pagination.service';
 
 @Injectable()
 export class StudentContactService {
@@ -22,8 +25,24 @@ export class StudentContactService {
     }
   }
 
-  async findAll(): Promise<StudentContact[]> {
-    return this.repo.find({ order: { id: 'DESC' } });
+  async findAll(query: StudentContactQueryDto): Promise<PaginatedResponseDto<StudentContact>> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const qb = this.repo.createQueryBuilder('c')
+      .leftJoinAndSelect('c.studentLinkType', 'studentLinkType');
+
+    if (query.search) {
+      qb.andWhere(
+        '(c.firstname LIKE :search OR c.lastname LIKE :search OR c.email LIKE :search OR c.phone LIKE :search OR c.city LIKE :search OR c.country LIKE :search)',
+        { search: `%${query.search}%` },
+      );
+    }
+    if (query.studentlinktypeId) qb.andWhere('c.studentlinktypeId = :sid', { sid: query.studentlinktypeId });
+    if (query.status !== undefined) qb.andWhere('c.status = :status', { status: query.status });
+
+    qb.skip((page - 1) * limit).take(limit).orderBy('c.id', 'DESC');
+    const [data, total] = await qb.getManyAndCount();
+    return PaginationService.createResponse(data, page, limit, total);
   }
 
   async findOne(id: number): Promise<StudentContact> {

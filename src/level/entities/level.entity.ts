@@ -1,0 +1,41 @@
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Company } from '../../company/entities/company.entity';
+import { Specialization } from '../../specializations/entities/specialization.entity';
+
+@Entity('levels')
+export class Level {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  title: string;
+
+  @Column({ nullable: true })
+  description: string;
+
+  @Column({ type: 'int', nullable: true, default: 1 })
+  level: number;
+
+  @Column({ type: 'int', default: 1 })
+  status: number;
+
+  @Column({ nullable: true })
+  company_id: number;
+
+  @Column()
+  specialization_id: number;
+
+  @ManyToOne(() => Company, { nullable: true })
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
+
+  @ManyToOne(() => Specialization, (specialization) => specialization.levels, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'specialization_id' })
+  specialization: Specialization;
+
+  @CreateDateColumn()
+  created_at: Date;
+
+  @UpdateDateColumn()
+  updated_at: Date;
+}

@@ -40,6 +40,9 @@ export class Teacher {
   @Column({ nullable: true })
   picture: string;
 
+  @Column({ type: 'int', nullable: true, name: 'statut', default: 1 })
+  status: number;
+
   @Column({ nullable: true })
   company_id: number;
 

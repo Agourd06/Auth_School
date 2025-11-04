@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsDateString, IsInt, IsPositive } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsInt, IsPositive, IsNumber } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateSchoolYearPeriodDto {
   @IsString()
@@ -17,4 +18,9 @@ export class CreateSchoolYearPeriodDto {
   @IsInt()
   @IsPositive()
   schoolYearId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  company_id?: number;
 }

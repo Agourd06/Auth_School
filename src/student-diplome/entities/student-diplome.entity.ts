@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { Student } from '../../students/entities/student.entity';
+import { Company } from '../../company/entities/company.entity';
 
 @Entity('student_diplomes')
 export class StudentDiplome {
@@ -42,4 +43,14 @@ export class StudentDiplome {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @Column({ type: 'int', nullable: true, name: 'statut', default: 1 })
+  status: number;
+
+  @Column({ nullable: true })
+  company_id: number;
+
+  @ManyToOne(() => Company, { nullable: true })
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
 }
