@@ -120,7 +120,10 @@ describe('CourseService', () => {
 
       const result = await service.findAll();
 
-      expect(courseRepo.find).toHaveBeenCalledWith({ relations: ['company', 'modules'] });
+      expect(courseRepo.find).toHaveBeenCalledTimes(1);
+      const args = courseRepo.find.mock.calls[0][0] as any;
+      expect(args.relations).toEqual(['company', 'modules']);
+      expect(args.where.statut).toEqual(expect.objectContaining({ value: -2 }));
       expect(result).toBe(courses);
     });
   });
@@ -136,6 +139,7 @@ describe('CourseService', () => {
       const result = await service.findAllWithPagination(query);
 
       expect(courseRepo.createQueryBuilder).toHaveBeenCalledWith('course');
+      expect(qb.andWhere).toHaveBeenCalledWith('course.statut <> :deletedStatus', { deletedStatus: -2 });
       expect(qb.skip).toHaveBeenCalledWith(3);
       expect(qb.take).toHaveBeenCalledWith(3);
       expect(qb.orderBy).toHaveBeenCalledWith('course.created_at', 'DESC');
@@ -155,7 +159,7 @@ describe('CourseService', () => {
 
   describe('findOne', () => {
     it('should return course when found', async () => {
-      const course = { id: 1 } as Course;
+      const course = { id: 1, statut: 1 } as Course;
       courseRepo.findOne!.mockResolvedValue(course);
 
       const result = await service.findOne(1);
@@ -169,6 +173,12 @@ describe('CourseService', () => {
 
     it('should throw NotFoundException when missing', async () => {
       courseRepo.findOne!.mockResolvedValue(null);
+
+      await expect(service.findOne(1)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException when course is marked deleted', async () => {
+      courseRepo.findOne!.mockResolvedValue({ id: 1, statut: -2 } as any);
 
       await expect(service.findOne(1)).rejects.toThrow(NotFoundException);
     });

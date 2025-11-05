@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { ApiBearerAuth, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AdministratorsService } from './administrators.service';
 import { CreateAdministratorDto } from './dto/create-administrator.dto';
 import { UpdateAdministratorDto } from './dto/update-administrator.dto';
@@ -8,11 +9,15 @@ import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
 
+@ApiTags('Administrators')
+@ApiBearerAuth()
 @Controller('administrators')
 export class AdministratorsController {
   constructor(private readonly administratorsService: AdministratorsService) {}
 
   @Post()
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Administrator created successfully.' })
   @UseInterceptors(
     FileInterceptor('picture', {
       storage: diskStorage({
@@ -51,16 +56,20 @@ export class AdministratorsController {
   }
 
   @Get()
+  @ApiResponse({ status: 200, description: 'List administrators based on the provided filters.' })
   findAll(@Query() query: AdministratorsQueryDto) {
     return this.administratorsService.findAll(query);
   }
 
   @Get(':id')
+  @ApiResponse({ status: 200, description: 'Retrieve a single administrator.' })
   findOne(@Param('id') id: string) {
     return this.administratorsService.findOne(+id);
   }
 
   @Patch(':id')
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 200, description: 'Update administrator details.' })
   @UseInterceptors(
     FileInterceptor('picture', {
       storage: diskStorage({
@@ -103,6 +112,7 @@ export class AdministratorsController {
   }
 
   @Delete(':id')
+  @ApiResponse({ status: 200, description: 'Remove an administrator record.' })
   remove(@Param('id') id: string) {
     return this.administratorsService.remove(+id);
   }

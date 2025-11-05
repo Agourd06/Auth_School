@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { SchoolYearPeriodsService } from './school-year-periods.service';
 import { SchoolYearPeriod } from './entities/school-year-period.entity';
 import { SchoolYear } from '../school-years/entities/school-year.entity';
@@ -70,7 +70,7 @@ describe('SchoolYearPeriodsService', () => {
 
       const result = await service.create(dto);
 
-      expect(schoolYearRepo.findOne).toHaveBeenCalledWith({ where: { id: 2 } });
+      expect(schoolYearRepo.findOne).toHaveBeenCalledWith({ where: { id: 2, status: Not(-2) } });
       expect(periodRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Q1',
@@ -120,6 +120,7 @@ describe('SchoolYearPeriodsService', () => {
       const result = await service.findAll(query);
 
       expect(periodRepo.createQueryBuilder).toHaveBeenCalledWith('p');
+      expect(qb.andWhere).toHaveBeenCalledWith('p.status <> :deletedStatus', { deletedStatus: -2 });
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('p.schoolYear', 'schoolYear');
       expect(qb.orderBy).toHaveBeenCalledWith('p.id', 'DESC');
       expect(qb.skip).toHaveBeenCalledWith(5);
@@ -138,12 +139,16 @@ describe('SchoolYearPeriodsService', () => {
 
   describe('findOne', () => {
     it('should return the period when found', async () => {
-      const period = { id: 1 } as SchoolYearPeriod;
+      const period = { id: 1, status: 1 } as SchoolYearPeriod;
       periodRepo.findOne!.mockResolvedValue(period);
 
       const result = await service.findOne(1);
 
-      expect(periodRepo.findOne).toHaveBeenCalledWith({ where: { id: 1 }, relations: ['schoolYear'] });
+      expect(periodRepo.findOne).toHaveBeenCalledTimes(1);
+      const args = periodRepo.findOne.mock.calls[0][0] as any;
+      expect(args.where.id).toBe(1);
+      expect(args.where.status).toEqual(expect.objectContaining({ value: -2 }));
+      expect(args.relations).toEqual(['schoolYear']);
       expect(result).toBe(period);
     });
 
@@ -152,6 +157,7 @@ describe('SchoolYearPeriodsService', () => {
 
       await expect(service.findOne(1)).rejects.toThrow(NotFoundException);
     });
+
   });
 
   describe('update', () => {
@@ -180,7 +186,7 @@ describe('SchoolYearPeriodsService', () => {
       const result = await service.update(1, dto);
 
       expect(findOneSpy).toHaveBeenCalledWith(1);
-      expect(schoolYearRepo.findOne).toHaveBeenCalledWith({ where: { id: 3 } });
+      expect(schoolYearRepo.findOne).toHaveBeenCalledWith({ where: { id: 3, status: Not(-2) } });
       expect(period.status).toBe(-1);
       expect(period.title).toBe('Q2');
       expect(period.schoolYear).toBe(parent);

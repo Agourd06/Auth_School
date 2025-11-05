@@ -109,7 +109,10 @@ describe('ModuleService', () => {
 
       const result = await service.findAll();
 
-      expect(moduleRepo.find).toHaveBeenCalledWith({ relations: ['company', 'courses'] });
+      expect(moduleRepo.find).toHaveBeenCalledTimes(1);
+      const args = moduleRepo.find.mock.calls[0][0] as any;
+      expect(args.relations).toEqual(['company', 'courses']);
+      expect(args.where.statut).toEqual(expect.objectContaining({ value: -2 }));
       expect(result).toBe(modules);
     });
   });
@@ -125,6 +128,7 @@ describe('ModuleService', () => {
       const result = await service.findAllWithPagination(query);
 
       expect(moduleRepo.createQueryBuilder).toHaveBeenCalledWith('module');
+      expect(qb.andWhere).toHaveBeenCalledWith('module.statut <> :deletedStatus', { deletedStatus: -2 });
       expect(qb.skip).toHaveBeenCalledWith(0);
       expect(qb.take).toHaveBeenCalledWith(5);
       expect(qb.orderBy).toHaveBeenCalledWith('module.created_at', 'DESC');
@@ -144,7 +148,7 @@ describe('ModuleService', () => {
 
   describe('findOne', () => {
     it('should return module when found', async () => {
-      const moduleEntity = { id: 1 } as ModuleEntity;
+      const moduleEntity = { id: 1, statut: 1 } as ModuleEntity;
       moduleRepo.findOne!.mockResolvedValue(moduleEntity);
 
       const result = await service.findOne(1);
@@ -158,6 +162,12 @@ describe('ModuleService', () => {
 
     it('should throw NotFoundException when missing', async () => {
       moduleRepo.findOne!.mockResolvedValue(null);
+
+      await expect(service.findOne(1)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException when module is marked deleted', async () => {
+      moduleRepo.findOne!.mockResolvedValue({ id: 1, statut: -2 } as any);
 
       await expect(service.findOne(1)).rejects.toThrow(NotFoundException);
     });

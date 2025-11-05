@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { CreateStudentDiplomeDto } from './dto/create-student-diplome.dto';
 import { UpdateStudentDiplomeDto } from './dto/update-student-diplome.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { StudentDiplome } from './entities/student-diplome.entity';
 import { StudentDiplomesQueryDto } from './dto/student-diplomes-query.dto';
 import { PaginatedResponseDto } from '../common/dto/pagination.dto';
@@ -30,6 +30,8 @@ export class StudentDiplomeService {
     const limit = query.limit ?? 10;
     const qb = this.repo.createQueryBuilder('d');
 
+    qb.andWhere('d.status <> :deletedStatus', { deletedStatus: -2 });
+
     if (query.search) {
       qb.andWhere(
         '(d.title LIKE :search OR d.school LIKE :search OR d.diplome LIKE :search OR d.city LIKE :search OR d.country LIKE :search)',
@@ -49,7 +51,7 @@ export class StudentDiplomeService {
   }
 
   async findOne(id: number): Promise<StudentDiplome> {
-    const found = await this.repo.findOne({ where: { id } });
+    const found = await this.repo.findOne({ where: { id, status: Not(-2) } });
     if (!found) throw new NotFoundException('Student diplome not found');
     return found;
   }

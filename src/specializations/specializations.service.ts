@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { CreateSpecializationDto } from './dto/create-specialization.dto';
 import { UpdateSpecializationDto } from './dto/update-specialization.dto';
 import { Specialization } from './entities/specialization.entity';
@@ -30,6 +30,8 @@ export class SpecializationsService {
     const limit = query.limit ?? 10;
     const qb = this.repo.createQueryBuilder('s').leftJoinAndSelect('s.program', 'p');
 
+    qb.andWhere('s.status <> :deletedStatus', { deletedStatus: -2 });
+
     if (query.search) qb.andWhere('s.title LIKE :search', { search: `%${query.search}%` });
     if (query.status !== undefined) qb.andWhere('s.status = :status', { status: query.status });
     if (query.program_id) qb.andWhere('s.program_id = :program_id', { program_id: query.program_id });
@@ -43,7 +45,7 @@ export class SpecializationsService {
 
   async findOne(id: number): Promise<Specialization> {
     const found = await this.repo.findOne({
-      where: { id },
+      where: { id, status: Not(-2) },
       relations: ['program'],
     });
     if (!found) throw new NotFoundException('Specialization not found');

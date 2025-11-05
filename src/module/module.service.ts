@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, Not } from 'typeorm';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { UpdateModuleDto } from './dto/update-module.dto';
 import { ModuleQueryDto } from './dto/module-query.dto';
@@ -39,6 +39,7 @@ export class ModuleService {
 
   async findAll(): Promise<Module[]> {
     return await this.moduleRepository.find({
+      where: { statut: Not(-2) } as any,
       relations: ['company', 'courses'],
     });
   }
@@ -54,6 +55,8 @@ export class ModuleService {
       .skip(skip)
       .take(limit)
       .orderBy('module.created_at', 'DESC');
+
+    queryBuilder.andWhere('module.statut <> :deletedStatus', { deletedStatus: -2 });
 
     // Add search filter
     if (search) {
@@ -76,7 +79,7 @@ export class ModuleService {
       relations: ['company', 'courses'],
     });
     
-    if (!module) {
+    if (!module || (module as any).statut === -2) {
       throw new NotFoundException(`Module with ID ${id} not found`);
     }
     

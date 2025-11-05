@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { CreateStudentContactDto } from './dto/create-student-contact.dto';
 import { UpdateStudentContactDto } from './dto/update-student-contact.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { StudentContact } from './entities/student-contact.entity';
 import { StudentContactQueryDto } from './dto/student-contact-query.dto';
 import { PaginatedResponseDto } from '../common/dto/pagination.dto';
@@ -31,6 +31,8 @@ export class StudentContactService {
     const qb = this.repo.createQueryBuilder('c')
       .leftJoinAndSelect('c.studentLinkType', 'studentLinkType');
 
+    qb.andWhere('c.status <> :deletedStatus', { deletedStatus: -2 });
+
     if (query.search) {
       qb.andWhere(
         '(c.firstname LIKE :search OR c.lastname LIKE :search OR c.email LIKE :search OR c.phone LIKE :search OR c.city LIKE :search OR c.country LIKE :search)',
@@ -46,7 +48,7 @@ export class StudentContactService {
   }
 
   async findOne(id: number): Promise<StudentContact> {
-    const found = await this.repo.findOne({ where: { id }, relations: ['studentLinkType'] });
+    const found = await this.repo.findOne({ where: { id, status: Not(-2) }, relations: ['studentLinkType'] });
     if (!found) throw new NotFoundException('Student contact not found');
     return found;
   }

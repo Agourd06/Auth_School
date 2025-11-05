@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersQueryDto } from './dto/users-query.dto';
@@ -22,6 +22,7 @@ export class UsersService {
 
   async findAll(): Promise<User[]> {
     return await this.userRepository.find({
+      where: { status: Not(-2) },
       relations: ['company'],
     });
   }
@@ -36,6 +37,8 @@ export class UsersService {
       .skip(skip)
       .take(limit)
       .orderBy('user.created_at', 'DESC');
+
+    queryBuilder.andWhere('user.status <> :deletedStatus', { deletedStatus: -2 });
 
     // Add search filter for email or username
     if (search) {
@@ -56,7 +59,7 @@ export class UsersService {
 
   async findOne(id: number): Promise<User> {
     const user = await this.userRepository.findOne({
-      where: { id },
+      where: { id, status: Not(-2) },
       relations: ['company'],
     });
     
@@ -69,7 +72,7 @@ export class UsersService {
 
   async findByEmail(email: string): Promise<User> {
     const user = await this.userRepository.findOne({
-      where: { email },
+      where: { email, status: Not(-2) },
       relations: ['company'],
     });
     

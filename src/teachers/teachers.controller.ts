@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { ApiBearerAuth, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TeachersService } from './teachers.service';
 import { CreateTeacherDto } from './dto/create-teacher.dto';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
@@ -8,11 +9,15 @@ import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
 
+@ApiTags('Teachers')
+@ApiBearerAuth()
 @Controller('teachers')
 export class TeachersController {
   constructor(private readonly teachersService: TeachersService) {}
 
   @Post()
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Teacher created successfully.' })
   @UseInterceptors(
     FileInterceptor('picture', {
       storage: diskStorage({
@@ -51,16 +56,20 @@ export class TeachersController {
   }
 
   @Get()
+  @ApiResponse({ status: 200, description: 'Retrieve teachers with pagination metadata.' })
   findAll(@Query() query: TeachersQueryDto) {
     return this.teachersService.findAll(query);
   }
 
   @Get(':id')
+  @ApiResponse({ status: 200, description: 'Retrieve a teacher by identifier.' })
   findOne(@Param('id') id: string) {
     return this.teachersService.findOne(+id);
   }
 
   @Patch(':id')
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 200, description: 'Update an existing teacher.' })
   @UseInterceptors(
     FileInterceptor('picture', {
       storage: diskStorage({
@@ -103,6 +112,7 @@ export class TeachersController {
   }
 
   @Delete(':id')
+  @ApiResponse({ status: 200, description: 'Remove a teacher record.' })
   remove(@Param('id') id: string) {
     return this.teachersService.remove(+id);
   }

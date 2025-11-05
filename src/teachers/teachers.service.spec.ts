@@ -84,6 +84,7 @@ describe('TeachersService', () => {
       const result = await service.findAll(query);
 
       expect(repository.createQueryBuilder).toHaveBeenCalledWith('t');
+      expect(qb.andWhere).toHaveBeenCalledWith('t.status <> :deletedStatus', { deletedStatus: -2 });
       expect(qb.skip).toHaveBeenCalledWith(5);
       expect(qb.take).toHaveBeenCalledWith(5);
       expect(result).toEqual(PaginationService.createResponse(items, 2, 5, 1));
@@ -97,9 +98,11 @@ describe('TeachersService', () => {
 
       const result = await service.findOne(1);
 
-      expect(repository.findOne).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 1 } }),
-      );
+      expect(repository.findOne).toHaveBeenCalledTimes(1);
+      const args = repository.findOne.mock.calls[0][0] as any;
+      expect(args.where.id).toBe(1);
+      expect(args.where.status).toEqual(expect.objectContaining({ value: -2 }));
+      expect(args.relations).toEqual(['classRoom', 'company']);
       expect(result).toBe(teacher);
     });
 

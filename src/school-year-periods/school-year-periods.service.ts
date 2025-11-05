@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { SchoolYearPeriod } from './entities/school-year-period.entity';
 import { CreateSchoolYearPeriodDto } from './dto/create-school-year-period.dto';
 import { UpdateSchoolYearPeriodDto } from './dto/update-school-year-period.dto';
@@ -30,7 +30,7 @@ export class SchoolYearPeriodsService {
   }
 
   async create(dto: CreateSchoolYearPeriodDto) {
-    const parent = await this.schoolYearRepo.findOne({ where: { id: dto.schoolYearId } });
+    const parent = await this.schoolYearRepo.findOne({ where: { id: dto.schoolYearId, status: Not(-2) } });
     if (!parent) throw new NotFoundException('Parent school year not found');
 
     const start = new Date(dto.start_date);
@@ -60,6 +60,8 @@ export class SchoolYearPeriodsService {
 
     const qb = this.periodRepo.createQueryBuilder('p').leftJoinAndSelect('p.schoolYear', 'schoolYear');
 
+    qb.andWhere('p.status <> :deletedStatus', { deletedStatus: -2 });
+
     if (q.title) {
       qb.andWhere('p.title LIKE :title', { title: `%${q.title}%` });
     }
@@ -83,7 +85,7 @@ export class SchoolYearPeriodsService {
   }
 
   async findOne(id: number) {
-    const period = await this.periodRepo.findOne({ where: { id }, relations: ['schoolYear'] });
+    const period = await this.periodRepo.findOne({ where: { id, status: Not(-2) }, relations: ['schoolYear'] });
     if (!period) throw new NotFoundException('School year period not found');
     return period;
   }
@@ -92,7 +94,7 @@ export class SchoolYearPeriodsService {
     const period = await this.findOne(id);
 
     if (dto.schoolYearId) {
-      const parent = await this.schoolYearRepo.findOne({ where: { id: dto.schoolYearId } });
+      const parent = await this.schoolYearRepo.findOne({ where: { id: dto.schoolYearId, status: Not(-2) } });
       if (!parent) throw new NotFoundException('Parent school year not found');
       period.schoolYear = parent;
     }

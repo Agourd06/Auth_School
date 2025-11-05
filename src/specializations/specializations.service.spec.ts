@@ -91,6 +91,7 @@ describe('SpecializationsService', () => {
       const result = await service.findAll(query);
 
       expect(repository.createQueryBuilder).toHaveBeenCalledWith('s');
+      expect(qb.andWhere).toHaveBeenCalledWith('s.status <> :deletedStatus', { deletedStatus: -2 });
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('s.program', 'p');
       expect(qb.andWhere).toHaveBeenCalledWith('s.title LIKE :search', { search: '%spec%' });
       expect(qb.andWhere).toHaveBeenCalledWith('s.status = :status', { status: 1 });
@@ -110,10 +111,11 @@ describe('SpecializationsService', () => {
 
       const result = await service.findOne(1);
 
-      expect(repository.findOne).toHaveBeenCalledWith({
-        where: { id: 1 },
-        relations: ['program'],
-      });
+      expect(repository.findOne).toHaveBeenCalledTimes(1);
+      const args = repository.findOne.mock.calls[0][0] as any;
+      expect(args.where.id).toBe(1);
+      expect(args.where.status).toEqual(expect.objectContaining({ value: -2 }));
+      expect(args.relations).toEqual(['program']);
       expect(result).toBe(specialization);
     });
 

@@ -92,6 +92,7 @@ describe('AdministratorsService', () => {
       const result = await service.findAll(query);
 
       expect(repository.createQueryBuilder).toHaveBeenCalledWith('a');
+      expect(qb.andWhere).toHaveBeenCalledWith('a.status <> :deletedStatus', { deletedStatus: -2 });
       expect(qb.andWhere).toHaveBeenCalledWith(
         '(a.first_name LIKE :search OR a.last_name LIKE :search OR a.email LIKE :search)',
         { search: '%john%' },
@@ -113,10 +114,11 @@ describe('AdministratorsService', () => {
 
       const result = await service.findOne(1);
 
-      expect(repository.findOne).toHaveBeenCalledWith({
-        where: { id: 1 },
-        relations: ['classRoom', 'company'],
-      });
+      expect(repository.findOne).toHaveBeenCalledTimes(1);
+      const args = repository.findOne.mock.calls[0][0] as any;
+      expect(args.where.id).toBe(1);
+      expect(args.where.status).toEqual(expect.objectContaining({ value: -2 }));
+      expect(args.relations).toEqual(['classRoom', 'company']);
       expect(result).toBe(administrator);
     });
 

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { SchoolYear } from './entities/school-year.entity';
 import { CreateSchoolYearDto } from './dto/create-school-year.dto';
 import { UpdateSchoolYearDto } from './dto/update-school-year.dto';
@@ -17,7 +17,7 @@ export class SchoolYearsService {
   ) {}
 
   async create(dto: CreateSchoolYearDto) {
-    const company = await this.companyRepo.findOne({ where: { id: dto.companyId } });
+    const company = await this.companyRepo.findOne({ where: { id: dto.companyId, status: Not(-2) } });
     if (!company) throw new NotFoundException('Company not found');
 
     const start = new Date(dto.start_date);
@@ -48,6 +48,8 @@ export class SchoolYearsService {
     const qb = this.schoolYearRepo.createQueryBuilder('sy')
       .leftJoinAndSelect('sy.company', 'company');
 
+    qb.andWhere('sy.status <> :deletedStatus', { deletedStatus: -2 });
+
     if (q.title) {
       qb.andWhere('sy.title LIKE :title', { title: `%${q.title}%` });
     }
@@ -73,7 +75,7 @@ export class SchoolYearsService {
   }
 
   async findOne(id: number) {
-    const schoolYear = await this.schoolYearRepo.findOne({ where: { id }, relations: ['company'] });
+    const schoolYear = await this.schoolYearRepo.findOne({ where: { id, status: Not(-2) }, relations: ['company'] });
     if (!schoolYear) throw new NotFoundException('School year not found');
     return schoolYear;
   }

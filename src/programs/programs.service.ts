@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { Program } from './entities/program.entity';
 import { CreateProgramDto } from './dto/create-program.dto';
 import { UpdateProgramDto } from './dto/update-program.dto';
@@ -29,6 +29,7 @@ export class ProgramService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const qb = this.repo.createQueryBuilder('p').leftJoinAndSelect('p.specializations', 's');
+    qb.andWhere('p.status <> :deletedStatus', { deletedStatus: -2 });
     if (query.search) qb.andWhere('p.title LIKE :search', { search: `%${query.search}%` });
     if (query.status !== undefined) qb.andWhere('p.status = :status', { status: query.status });
     qb.skip((page - 1) * limit).take(limit).orderBy('p.id', 'DESC');
@@ -37,7 +38,7 @@ export class ProgramService {
   }
 
   async findOne(id: number): Promise<Program> {
-    const found = await this.repo.findOne({ where: { id }, relations: ['specializations'] });
+    const found = await this.repo.findOne({ where: { id, status: Not(-2) }, relations: ['specializations'] });
     if (!found) throw new NotFoundException('Program not found');
     return found;
   }

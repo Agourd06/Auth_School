@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { CreateStudentLinkTypeDto } from './dto/create-studentlinktype.dto';
 import { UpdateStudentLinkTypeDto } from './dto/update-studentlinktype.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { StudentLinkType } from './entities/studentlinktype.entity';
 import { StudentLinkTypeQueryDto } from './dto/studentlinktype-query.dto';
 import { PaginatedResponseDto } from '../common/dto/pagination.dto';
@@ -29,6 +29,7 @@ export class StudentlinktypeService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const qb = this.repo.createQueryBuilder('t');
+    qb.andWhere('t.status <> :deletedStatus', { deletedStatus: -2 });
     if (query.search) qb.andWhere('t.title LIKE :search', { search: `%${query.search}%` });
     if (query.status !== undefined) qb.andWhere('t.status = :status', { status: query.status });
     if (query.company_id) qb.andWhere('t.company_id = :company_id', { company_id: query.company_id });
@@ -38,7 +39,7 @@ export class StudentlinktypeService {
   }
 
   async findOne(id: number): Promise<StudentLinkType> {
-    const found = await this.repo.findOne({ where: { id } });
+    const found = await this.repo.findOne({ where: { id, status: Not(-2) } });
     if (!found) throw new NotFoundException('Student link type not found');
     return found;
   }

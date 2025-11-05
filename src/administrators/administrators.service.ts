@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { CreateAdministratorDto } from './dto/create-administrator.dto';
 import { UpdateAdministratorDto } from './dto/update-administrator.dto';
 import { AdministratorsQueryDto } from './dto/administrators-query.dto';
@@ -32,6 +32,8 @@ export class AdministratorsService {
       .leftJoinAndSelect('a.classRoom', 'classRoom')
       .leftJoinAndSelect('a.company', 'company');
 
+    qb.andWhere('a.status <> :deletedStatus', { deletedStatus: -2 });
+
     if (query.search) {
       qb.andWhere(
         '(a.first_name LIKE :search OR a.last_name LIKE :search OR a.email LIKE :search)',
@@ -51,7 +53,7 @@ export class AdministratorsService {
 
   async findOne(id: number): Promise<Administrator> {
     const found = await this.administratorRepository.findOne({
-      where: { id },
+      where: { id, status: Not(-2) },
       relations: ['classRoom', 'company'],
     });
     if (!found) throw new NotFoundException('Administrator not found');

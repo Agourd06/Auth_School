@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentsQueryDto } from './dto/students-query.dto';
@@ -32,6 +32,8 @@ export class StudentsService {
       .leftJoinAndSelect('s.classRoom', 'classRoom')
       .leftJoinAndSelect('s.company', 'company');
 
+    qb.andWhere('s.status <> :deletedStatus', { deletedStatus: -2 });
+
     if (query.search) {
       qb.andWhere(
         '(s.first_name LIKE :search OR s.last_name LIKE :search OR s.email LIKE :search)',
@@ -51,7 +53,7 @@ export class StudentsService {
 
   async findOne(id: number): Promise<Student> {
     const found = await this.studentRepository.findOne({
-      where: { id },
+      where: { id, status: Not(-2) },
       relations: ['classRoom', 'company'],
     });
     if (!found) throw new NotFoundException('Student not found');

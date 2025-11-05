@@ -95,6 +95,7 @@ describe('ClassService', () => {
       const result = await service.findAll(query);
 
       expect(repository.createQueryBuilder).toHaveBeenCalledWith('c');
+      expect(qb.andWhere).toHaveBeenCalledWith('c.status <> :deletedStatus', { deletedStatus: -2 });
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('c.program', 'program');
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('c.specialization', 'specialization');
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('c.level', 'level');
@@ -126,10 +127,11 @@ describe('ClassService', () => {
 
       const result = await service.findOne(1);
 
-      expect(repository.findOne).toHaveBeenCalledWith({
-        where: { id: 1 },
-        relations: ['program', 'specialization', 'level', 'schoolYear', 'schoolYearPeriod'],
-      });
+      expect(repository.findOne).toHaveBeenCalledTimes(1);
+      const args = repository.findOne.mock.calls[0][0] as any;
+      expect(args.where.id).toBe(1);
+      expect(args.where.status).toEqual(expect.objectContaining({ value: -2 }));
+      expect(args.relations).toEqual(['program', 'specialization', 'level', 'schoolYear', 'schoolYearPeriod']);
       expect(result).toBe(entity);
     });
 

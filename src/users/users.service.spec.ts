@@ -66,7 +66,10 @@ describe('UsersService', () => {
 
       const result = await service.findAll();
 
-      expect(repository.find).toHaveBeenCalledWith({ relations: ['company'] });
+      expect(repository.find).toHaveBeenCalledTimes(1);
+      const args = repository.find.mock.calls[0][0] as any;
+      expect(args.relations).toEqual(['company']);
+      expect(args.where.status).toEqual(expect.objectContaining({ value: -2 }));
       expect(result).toBe(users);
     });
   });
@@ -82,6 +85,7 @@ describe('UsersService', () => {
       const result = await service.findAllWithPagination(query);
 
       expect(repository.createQueryBuilder).toHaveBeenCalledWith('user');
+      expect(qb.andWhere).toHaveBeenCalledWith('user.status <> :deletedStatus', { deletedStatus: -2 });
       expect(qb.skip).toHaveBeenCalledWith(4);
       expect(qb.take).toHaveBeenCalledWith(4);
       expect(result).toEqual(PaginationService.createResponse(users, 2, 4, 1));
@@ -90,12 +94,16 @@ describe('UsersService', () => {
 
   describe('findOne', () => {
     it('should return user when found', async () => {
-      const user = { id: 1 } as User;
+      const user = { id: 1, status: 1 } as User;
       repository.findOne!.mockResolvedValue(user);
 
       const result = await service.findOne(1);
 
-      expect(repository.findOne).toHaveBeenCalledWith({ where: { id: 1 }, relations: ['company'] });
+      expect(repository.findOne).toHaveBeenCalledTimes(1);
+      const args = repository.findOne.mock.calls[0][0] as any;
+      expect(args.where.id).toBe(1);
+      expect(args.where.status).toEqual(expect.objectContaining({ value: -2 }));
+      expect(args.relations).toEqual(['company']);
       expect(result).toBe(user);
     });
 
@@ -104,19 +112,21 @@ describe('UsersService', () => {
 
       await expect(service.findOne(1)).rejects.toThrow(NotFoundException);
     });
+
   });
 
   describe('findByEmail', () => {
     it('should return user by email', async () => {
-      const user = { id: 1 } as User;
+      const user = { id: 1, status: 1 } as User;
       repository.findOne!.mockResolvedValue(user);
 
       const result = await service.findByEmail('test@example.com');
 
-      expect(repository.findOne).toHaveBeenCalledWith({
-        where: { email: 'test@example.com' },
-        relations: ['company'],
-      });
+      expect(repository.findOne).toHaveBeenCalledTimes(1);
+      const args = repository.findOne.mock.calls[0][0] as any;
+      expect(args.where.email).toBe('test@example.com');
+      expect(args.where.status).toEqual(expect.objectContaining({ value: -2 }));
+      expect(args.relations).toEqual(['company']);
       expect(result).toBe(user);
     });
 
@@ -125,6 +135,7 @@ describe('UsersService', () => {
 
       await expect(service.findByEmail('missing@example.com')).rejects.toThrow(NotFoundException);
     });
+
   });
 
   describe('update', () => {

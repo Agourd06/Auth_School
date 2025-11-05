@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { Level } from './entities/level.entity';
 import { CreateLevelDto } from './dto/create-level.dto';
 import { UpdateLevelDto } from './dto/update-level.dto';
@@ -32,6 +32,8 @@ export class LevelService {
       .leftJoinAndSelect('l.specialization', 's')
       .leftJoinAndSelect('s.program', 'p');
 
+    qb.andWhere('l.status <> :deletedStatus', { deletedStatus: -2 });
+
     if (query.search) qb.andWhere('l.title LIKE :search', { search: `%${query.search}%` });
     if (query.specialization_id) qb.andWhere('l.specialization_id = :sid', { sid: query.specialization_id });
     if (query.status !== undefined) qb.andWhere('l.status = :status', { status: query.status });
@@ -42,7 +44,7 @@ export class LevelService {
 
   async findOne(id: number): Promise<Level> {
     const found = await this.repo.findOne({
-      where: { id },
+      where: { id, status: Not(-2) },
       relations: ['specialization', 'specialization.program'],
     });
     if (!found) throw new NotFoundException('Level not found');

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { Company } from './entities/company.entity';
@@ -25,6 +25,8 @@ export class CompanyService {
     const limit = query.limit ?? 10;
     const qb = this.companyRepository.createQueryBuilder('c').leftJoinAndSelect('c.users', 'users');
 
+    qb.andWhere('c.status <> :deletedStatus', { deletedStatus: -2 });
+
     if (query.search) {
       qb.andWhere('(c.name LIKE :search OR c.email LIKE :search)', { search: `%${query.search}%` });
     }
@@ -41,7 +43,7 @@ export class CompanyService {
 
   async findOne(id: number): Promise<Company> {
     const company = await this.companyRepository.findOne({
-      where: { id },
+      where: { id, status: Not(-2) },
       relations: ['users'],
     });
     

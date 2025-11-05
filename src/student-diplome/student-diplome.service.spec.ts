@@ -83,6 +83,7 @@ describe('StudentDiplomeService', () => {
       const result = await service.findAll(query);
 
       expect(repository.createQueryBuilder).toHaveBeenCalledWith('d');
+      expect(qb.andWhere).toHaveBeenCalledWith('d.status <> :deletedStatus', { deletedStatus: -2 });
       expect(qb.skip).toHaveBeenCalledWith(0);
       expect(qb.take).toHaveBeenCalledWith(8);
       expect(result).toEqual(PaginationService.createResponse(items, 1, 8, 1));
@@ -96,7 +97,10 @@ describe('StudentDiplomeService', () => {
 
       const result = await service.findOne(1);
 
-      expect(repository.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
+      expect(repository.findOne).toHaveBeenCalledTimes(1);
+      const args = repository.findOne.mock.calls[0][0] as any;
+      expect(args.where.id).toBe(1);
+      expect(args.where.status).toEqual(expect.objectContaining({ value: -2 }));
       expect(result).toBe(entity);
     });
 

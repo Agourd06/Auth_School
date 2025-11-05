@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, Not } from 'typeorm';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { CourseQueryDto } from './dto/course-query.dto';
@@ -39,6 +39,7 @@ export class CourseService {
 
   async findAll(): Promise<Course[]> {
     return await this.courseRepository.find({
+      where: { statut: Not(-2) } as any,
       relations: ['company', 'modules'],
     });
   }
@@ -54,6 +55,8 @@ export class CourseService {
       .skip(skip)
       .take(limit)
       .orderBy('course.created_at', 'DESC');
+
+    queryBuilder.andWhere('course.statut <> :deletedStatus', { deletedStatus: -2 });
 
     // Add search filter
     if (search) {
@@ -76,7 +79,7 @@ export class CourseService {
       relations: ['company', 'modules'],
     });
     
-    if (!course) {
+    if (!course || (course as any).statut === -2) {
       throw new NotFoundException(`Course with ID ${id} not found`);
     }
     

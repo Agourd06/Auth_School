@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { CreateClassRoomDto } from './dto/create-class-room.dto';
 import { UpdateClassRoomDto } from './dto/update-class-room.dto';
 import { ClassRoom } from './entities/class-room.entity';
@@ -29,6 +29,8 @@ export class ClassRoomsService {
     const limit = query.limit ?? 10;
     const qb = this.classRoomRepository.createQueryBuilder('cr');
 
+    qb.andWhere('cr.status <> :deletedStatus', { deletedStatus: -2 });
+
     if (query.search) {
       qb.andWhere('(cr.code LIKE :search OR cr.title LIKE :search)', {
         search: `%${query.search}%`,
@@ -49,7 +51,7 @@ export class ClassRoomsService {
   }
 
   async findOne(id: number): Promise<ClassRoom> {
-    const found = await this.classRoomRepository.findOne({ where: { id } });
+    const found = await this.classRoomRepository.findOne({ where: { id, status: Not(-2) } });
     if (!found) throw new NotFoundException('Classroom not found');
     return found;
   }

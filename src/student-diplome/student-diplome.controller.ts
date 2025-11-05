@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFiles, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { StudentDiplomeService } from './student-diplome.service';
 import { CreateStudentDiplomeDto } from './dto/create-student-diplome.dto';
 import { UpdateStudentDiplomeDto } from './dto/update-student-diplome.dto';
@@ -8,11 +9,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { StudentDiplomesQueryDto } from './dto/student-diplomes-query.dto';
 
+@ApiTags('Student Diplomas')
+@ApiBearerAuth()
 @Controller('student-diplome')
 export class StudentDiplomeController {
   constructor(private readonly studentDiplomeService: StudentDiplomeService) {}
 
   @Post()
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Student diploma record created successfully.' })
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'diplome_picture_1', maxCount: 1 },
@@ -60,16 +65,20 @@ export class StudentDiplomeController {
   }
 
   @Get()
+  @ApiResponse({ status: 200, description: 'Retrieve student diplomas with pagination metadata.' })
   findAll(@Query() query: StudentDiplomesQueryDto) {
     return this.studentDiplomeService.findAll(query);
   }
 
   @Get(':id')
+  @ApiResponse({ status: 200, description: 'Retrieve a student diploma by identifier.' })
   findOne(@Param('id') id: string) {
     return this.studentDiplomeService.findOne(+id);
   }
 
   @Patch(':id')
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 200, description: 'Update a student diploma record.' })
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'diplome_picture_1', maxCount: 1 },
@@ -120,6 +129,7 @@ export class StudentDiplomeController {
   }
 
   @Delete(':id')
+  @ApiResponse({ status: 200, description: 'Remove a student diploma record.' })
   remove(@Param('id') id: string) {
     return this.studentDiplomeService.remove(+id);
   }

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { ClassEntity } from './entities/class.entity';
@@ -35,6 +35,8 @@ export class ClassService {
       .leftJoinAndSelect('c.schoolYear', 'schoolYear')
       .leftJoinAndSelect('c.schoolYearPeriod', 'schoolYearPeriod');
 
+    qb.andWhere('c.status <> :deletedStatus', { deletedStatus: -2 });
+
     if (query.search) {
       qb.andWhere('(c.title LIKE :search OR c.description LIKE :search)', {
         search: `%${query.search}%`,
@@ -56,7 +58,7 @@ export class ClassService {
 
   async findOne(id: number): Promise<ClassEntity> {
     const found = await this.repo.findOne({
-      where: { id },
+      where: { id, status: Not(-2) },
       relations: ['program', 'specialization', 'level', 'schoolYear', 'schoolYearPeriod'],
     });
     if (!found) throw new NotFoundException('Class not found');

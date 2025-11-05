@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { SchoolYearsService } from './school-years.service';
 import { SchoolYear } from './entities/school-year.entity';
 import { Company } from '../company/entities/company.entity';
@@ -70,7 +70,7 @@ describe('SchoolYearsService', () => {
 
       const result = await service.create(dto);
 
-      expect(companyRepo.findOne).toHaveBeenCalledWith({ where: { id: 5 } });
+      expect(companyRepo.findOne).toHaveBeenCalledWith({ where: { id: 5, status: Not(-2) } });
       expect(schoolYearRepo.create).toHaveBeenCalledWith({
         title: '2024-2025',
         start_date: '2024-09-01',
@@ -119,6 +119,7 @@ describe('SchoolYearsService', () => {
       const result = await service.findAll(query);
 
       expect(schoolYearRepo.createQueryBuilder).toHaveBeenCalledWith('sy');
+      expect(qb.andWhere).toHaveBeenCalledWith('sy.status <> :deletedStatus', { deletedStatus: -2 });
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('sy.company', 'company');
       expect(qb.skip).toHaveBeenCalledWith(3);
       expect(qb.take).toHaveBeenCalledWith(3);
@@ -136,12 +137,16 @@ describe('SchoolYearsService', () => {
 
   describe('findOne', () => {
     it('should return school year when found', async () => {
-      const schoolYear = { id: 1 } as SchoolYear;
+      const schoolYear = { id: 1, status: 1 } as SchoolYear;
       schoolYearRepo.findOne!.mockResolvedValue(schoolYear);
 
       const result = await service.findOne(1);
 
-      expect(schoolYearRepo.findOne).toHaveBeenCalledWith({ where: { id: 1 }, relations: ['company'] });
+      expect(schoolYearRepo.findOne).toHaveBeenCalledTimes(1);
+      const args = schoolYearRepo.findOne.mock.calls[0][0] as any;
+      expect(args.where.id).toBe(1);
+      expect(args.where.status).toEqual(expect.objectContaining({ value: -2 }));
+      expect(args.relations).toEqual(['company']);
       expect(result).toBe(schoolYear);
     });
 
@@ -150,6 +155,7 @@ describe('SchoolYearsService', () => {
 
       await expect(service.findOne(1)).rejects.toThrow(NotFoundException);
     });
+
   });
 
   describe('update', () => {
