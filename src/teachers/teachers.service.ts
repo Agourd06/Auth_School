@@ -63,6 +63,19 @@ export class TeachersService {
   async update(id: number, updateTeacherDto: UpdateTeacherDto): Promise<Teacher> {
     const existing = await this.findOne(id);
     const merged = this.teacherRepository.merge(existing, updateTeacherDto);
+    const relationMappings = {
+      company_id: 'company',
+      class_room_id: 'classRoom',
+    } as const;
+
+    (Object.entries(relationMappings) as Array<[keyof UpdateTeacherDto, keyof Teacher]>).forEach(([idProp, relationProp]) => {
+      const value = (updateTeacherDto as any)[idProp];
+      if (value !== undefined) {
+        (merged as any)[idProp] = value;
+        (merged as any)[relationProp] = value ? ({ id: value } as any) : undefined;
+      }
+    });
+
     await this.teacherRepository.save(merged);
     return this.findOne(id);
   }

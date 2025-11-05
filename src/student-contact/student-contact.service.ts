@@ -56,6 +56,18 @@ export class StudentContactService {
   async update(id: number, dto: UpdateStudentContactDto): Promise<StudentContact> {
     const existing = await this.findOne(id);
     const merged = this.repo.merge(existing, dto);
+    const relationMappings = {
+      studentlinktypeId: 'studentLinkType',
+      company_id: 'company',
+    } as const;
+
+    (Object.entries(relationMappings) as Array<[keyof UpdateStudentContactDto, keyof StudentContact]>).forEach(([idProp, relationProp]) => {
+      const value = (dto as any)[idProp];
+      if (value !== undefined) {
+        (merged as any)[idProp] = value;
+        (merged as any)[relationProp] = value ? ({ id: value } as any) : undefined;
+      }
+    });
     await this.repo.save(merged);
     return this.findOne(id);
   }

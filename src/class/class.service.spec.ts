@@ -163,6 +163,43 @@ describe('ClassService', () => {
       expect(result).toBe(merged);
       findOneSpy.mockRestore();
     });
+
+    it('should synchronise relation identifiers when provided', async () => {
+      const dto = {
+        program_id: 2,
+        specialization_id: 3,
+        level_id: 4,
+        school_year_id: 5,
+        school_year_period_id: 6,
+        company_id: 7,
+      } as any;
+      const existing = { id: 1 } as ClassEntity;
+      const merged = { id: 1 } as ClassEntity;
+      const refreshed = { id: 1, ...dto } as ClassEntity;
+      const findOneSpy = jest
+        .spyOn(service, 'findOne')
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce(refreshed);
+      repository.merge!.mockReturnValue(merged);
+      repository.save!.mockResolvedValue(merged);
+
+      await service.update(1, dto);
+
+      const saved = repository.save.mock.calls[0][0] as any;
+      expect(saved.program_id).toBe(2);
+      expect(saved.program).toEqual({ id: 2 });
+      expect(saved.specialization_id).toBe(3);
+      expect(saved.specialization).toEqual({ id: 3 });
+      expect(saved.level_id).toBe(4);
+      expect(saved.level).toEqual({ id: 4 });
+      expect(saved.school_year_id).toBe(5);
+      expect(saved.schoolYear).toEqual({ id: 5 });
+      expect(saved.school_year_period_id).toBe(6);
+      expect(saved.schoolYearPeriod).toEqual({ id: 6 });
+      expect(saved.company_id).toBe(7);
+      expect(saved.company).toEqual({ id: 7 });
+      findOneSpy.mockRestore();
+    });
   });
 
   describe('remove', () => {

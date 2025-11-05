@@ -55,6 +55,14 @@ export class SpecializationsService {
   async update(id: number, dto: UpdateSpecializationDto): Promise<Specialization> {
     const existing = await this.findOne(id);
     const merged = this.repo.merge(existing, dto);
+    if (dto.program_id !== undefined) {
+      merged.program_id = dto.program_id;
+      merged.program = dto.program_id ? ({ id: dto.program_id } as any) : undefined;
+    }
+    if (dto.company_id !== undefined) {
+      merged.company_id = dto.company_id;
+      merged.company = dto.company_id ? ({ id: dto.company_id } as any) : undefined;
+    }
     await this.repo.save(merged);
     return this.findOne(id);
   }

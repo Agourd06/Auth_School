@@ -134,6 +134,28 @@ describe('StudentContactService', () => {
       expect(result).toBe(merged);
       findOneSpy.mockRestore();
     });
+
+    it('should sync relation fields when ids provided', async () => {
+      const dto = { studentlinktypeId: 8, company_id: 4 } as any;
+      const existing = { id: 1 } as StudentContact;
+      const merged = { id: 1 } as StudentContact;
+      const refreshed = { id: 1, studentlinktypeId: 8, company_id: 4 } as StudentContact;
+      const findOneSpy = jest
+        .spyOn(service, 'findOne')
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce(refreshed);
+      repository.merge!.mockReturnValue(merged);
+      repository.save!.mockResolvedValue(merged);
+
+      await service.update(1, dto);
+
+      const savedArg = repository.save.mock.calls[0][0] as StudentContact;
+      expect(savedArg.studentlinktypeId).toBe(8);
+      expect(savedArg.studentLinkType).toEqual({ id: 8 });
+      expect(savedArg.company_id).toBe(4);
+      expect(savedArg.company).toEqual({ id: 4 });
+      findOneSpy.mockRestore();
+    });
   });
 
   describe('remove', () => {

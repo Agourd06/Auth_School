@@ -133,6 +133,28 @@ describe('TeachersService', () => {
       expect(result).toBe(merged);
       findOneSpy.mockRestore();
     });
+
+    it('should synchronise relation identifiers when provided', async () => {
+      const dto = { company_id: 4, class_room_id: 9 } as any;
+      const existing = { id: 1 } as Teacher;
+      const merged = { id: 1 } as Teacher;
+      const refreshed = { id: 1, company_id: 4, class_room_id: 9 } as Teacher;
+      const findOneSpy = jest
+        .spyOn(service, 'findOne')
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce(refreshed);
+      repository.merge!.mockReturnValue(merged);
+      repository.save!.mockResolvedValue(merged);
+
+      await service.update(1, dto);
+
+      const saved = repository.save.mock.calls[0][0] as any;
+      expect(saved.company_id).toBe(4);
+      expect(saved.company).toEqual({ id: 4 });
+      expect(saved.class_room_id).toBe(9);
+      expect(saved.classRoom).toEqual({ id: 9 });
+      findOneSpy.mockRestore();
+    });
   });
 
   describe('remove', () => {

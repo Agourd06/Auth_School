@@ -68,6 +68,23 @@ export class ClassService {
   async update(id: number, dto: UpdateClassDto): Promise<ClassEntity> {
     const existing = await this.findOne(id);
     const merged = this.repo.merge(existing, dto);
+    const relationMappings = {
+      program_id: 'program',
+      specialization_id: 'specialization',
+      level_id: 'level',
+      school_year_id: 'schoolYear',
+      school_year_period_id: 'schoolYearPeriod',
+      company_id: 'company',
+    } as const;
+
+    (Object.entries(relationMappings) as Array<[keyof UpdateClassDto, keyof ClassEntity]>).forEach(([idProp, relationProp]) => {
+      const value = (dto as any)[idProp];
+      if (value !== undefined) {
+        (merged as any)[idProp] = value;
+        (merged as any)[relationProp] = value ? ({ id: value } as any) : undefined;
+      }
+    });
+
     await this.repo.save(merged);
     return this.findOne(id);
   }

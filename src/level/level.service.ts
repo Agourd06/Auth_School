@@ -54,8 +54,12 @@ export class LevelService {
   async update(id: number, dto: UpdateLevelDto): Promise<Level> {
     const existing = await this.findOne(id);
     const merged = this.repo.merge(existing, dto);
+    if (dto.specialization_id !== undefined) {
+      merged.specialization_id = dto.specialization_id;
+      merged.specialization = dto.specialization_id ? ({ id: dto.specialization_id } as any) : undefined;
+    }
     await this.repo.save(merged);
-    return this.findOne(id);
+    return this.findOne(id);   
   }
 
   async remove(id: number): Promise<void> {
