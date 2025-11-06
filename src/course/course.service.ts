@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Not } from 'typeorm';
+import { Repository, DataSource, Not, In, QueryRunner } from 'typeorm';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { CourseQueryDto } from './dto/course-query.dto';
@@ -27,14 +27,24 @@ export class CourseService {
       statut: createCourseDto.status,
     };
     const course = this.courseRepository.create(courseData);
-    
-    // Handle module relationships if provided
-    if (createCourseDto.module_ids && createCourseDto.module_ids.length > 0) {
-      const modules = await this.moduleRepository.findByIds(createCourseDto.module_ids);
-      course.modules = modules;
+
+    if (createCourseDto.module_ids?.length) {
+      const uniqueModuleIds = [...new Set(createCourseDto.module_ids)];
+      const modules = await this.moduleRepository.findByIds(uniqueModuleIds);
+      if (modules.length !== uniqueModuleIds.length) {
+        const foundIds = modules.map(module => module.id);
+        const missing = uniqueModuleIds.filter(id => !foundIds.includes(id));
+        throw new NotFoundException(`Modules with IDs ${missing.join(', ')} not found`);
+      }
     }
-    
-    return await this.courseRepository.save(course);
+
+    const savedCourse = await this.courseRepository.save(course);
+
+    if (createCourseDto.module_ids?.length) {
+      await this.replaceCourseModulesWithOrder(savedCourse.id, createCourseDto.module_ids);
+    }
+
+    return this.findOne(savedCourse.id);
   }
 
   async findAll(): Promise<Course[]> {
@@ -88,29 +98,102 @@ export class CourseService {
 
   async update(id: number, updateCourseDto: UpdateCourseDto): Promise<Course> {
     const course = await this.findOne(id);
-    
-    // Handle module relationships if provided
+
     if (updateCourseDto.module_ids !== undefined) {
-      if (updateCourseDto.module_ids.length > 0) {
-        const modules = await this.moduleRepository.findByIds(updateCourseDto.module_ids);
-        course.modules = modules;
-      } else {
-        course.modules = [];
+      const uniqueModuleIds = [...new Set(updateCourseDto.module_ids)];
+      if (uniqueModuleIds.length) {
+        const modules = await this.moduleRepository.findByIds(uniqueModuleIds);
+        if (modules.length !== uniqueModuleIds.length) {
+          const foundIds = modules.map(module => module.id);
+          const missing = uniqueModuleIds.filter(moduleId => !foundIds.includes(moduleId));
+          throw new NotFoundException(`Modules with IDs ${missing.join(', ')} not found`);
+        }
       }
     }
-    
+
     const updateData = {
       ...updateCourseDto,
       intitule: updateCourseDto.title,
       statut: updateCourseDto.status,
     };
     Object.assign(course, updateData);
-    return await this.courseRepository.save(course);
+    const savedCourse = await this.courseRepository.save(course);
+
+    if (updateCourseDto.module_ids !== undefined) {
+      await this.replaceCourseModulesWithOrder(savedCourse.id, updateCourseDto.module_ids);
+    }
+
+    return this.findOne(savedCourse.id);
   }
 
   async remove(id: number): Promise<void> {
     const course = await this.findOne(id);
     await this.courseRepository.remove(course);
+  }
+
+
+  private normalizeIds(ids: number[] = []): number[] {
+    const seen = new Set<number>();
+    const ordered: number[] = [];
+    ids.forEach(id => {
+      if (id === undefined || id === null) return;
+      if (!seen.has(id)) {
+        seen.add(id);
+        ordered.push(id);
+      }
+    });
+    return ordered;
+  }
+
+  private async replaceCourseModulesWithOrder(courseId: number, moduleIds: number[] = []): Promise<void> {
+    await this.courseRepository.query('DELETE FROM module_course WHERE course_id = ?', [courseId]);
+
+    const uniqueModuleIds = this.normalizeIds(moduleIds);
+    if (!uniqueModuleIds.length) return;
+
+    let tri = 0;
+    for (const moduleId of uniqueModuleIds) {
+      await this.courseRepository.query(
+        'INSERT INTO module_course (module_id, course_id, tri) VALUES (?, ?, ?)',
+        [moduleId, courseId, tri++],
+      );
+    }
+  }
+
+  private async getNextTriForCourse(courseId: number, runner?: QueryRunner): Promise<number> {
+    const executor = runner ? runner.query.bind(runner) : this.courseRepository.query.bind(this.courseRepository);
+    const result = await executor('SELECT COUNT(*) as total FROM module_course WHERE course_id = ?', [courseId]);
+    const row = Array.isArray(result) ? result[0] : undefined;
+    const value = row ? (row as any).total ?? Object.values(row)[0] : 0;
+    return Number(value) || 0;
+  }
+
+  private async fetchAssignedModulesWithTri(courseId: number): Promise<Array<Module & { tri: number; assignment_created_at: Date }>> {
+    const assignments = await this.courseRepository.query(
+      'SELECT module_id, tri, created_at FROM module_course WHERE course_id = ? ORDER BY tri ASC, created_at DESC',
+      [courseId],
+    );
+
+    if (!assignments.length) return [];
+
+    const moduleIds = assignments.map((row: any) => row.module_id);
+    const modules = await this.moduleRepository.find({
+      where: { id: In(moduleIds) },
+      relations: ['company'],
+    });
+
+    const moduleMap = new Map<number, Module>(modules.map(module => [module.id, module]));
+
+    return assignments
+      .map((row: any) => {
+        const entity = moduleMap.get(row.module_id);
+        if (!entity) return null;
+        const clone = { ...entity } as Module & { tri: number; assignment_created_at: Date };
+        (clone as any).tri = Number(row.tri ?? 0);
+        (clone as any).assignment_created_at = row.created_at instanceof Date ? row.created_at : new Date(row.created_at);
+        return clone;
+      })
+      .filter(Boolean) as Array<Module & { tri: number; assignment_created_at: Date }>;
   }
 
 
@@ -121,15 +204,8 @@ export class CourseService {
     // Verify course exists
     await this.findOne(courseId);
 
-    // Get assigned modules
-    const assignedModules = await this.courseRepository
-      .createQueryBuilder('course')
-      .leftJoinAndSelect('course.modules', 'modules')
-      .leftJoinAndSelect('modules.company', 'company')
-      .where('course.id = :courseId', { courseId })
-      .getOne();
+    const assignedModules = await this.fetchAssignedModulesWithTri(courseId);
 
-    // Get all modules not assigned to this course
     const unassignedModules = await this.moduleRepository
       .createQueryBuilder('module')
       .leftJoinAndSelect('module.company', 'company')
@@ -138,7 +214,7 @@ export class CourseService {
       .getMany();
 
     return {
-      assigned: assignedModules?.modules || [],
+      assigned: assignedModules,
       unassigned: unassignedModules,
     };
   }
@@ -163,22 +239,24 @@ export class CourseService {
 
       // Handle module additions
       if (assignmentDto.add?.length) {
-        // Verify all modules exist
-        const modulesToAdd = await this.moduleRepository.findByIds(assignmentDto.add);
-        if (modulesToAdd.length !== assignmentDto.add.length) {
+        const modulesToAddIds = this.normalizeIds(assignmentDto.add);
+
+        const modulesToAdd = await this.moduleRepository.findByIds(modulesToAddIds);
+        if (modulesToAdd.length !== modulesToAddIds.length) {
           const foundIds = modulesToAdd.map(m => m.id);
-          const missingIds = assignmentDto.add.filter(id => !foundIds.includes(id));
+          const missingIds = modulesToAddIds.filter(id => !foundIds.includes(id));
           throw new NotFoundException(`Modules with IDs ${missingIds.join(', ')} not found`);
         }
 
-        // Insert new relationships
-        for (const moduleId of assignmentDto.add) {
+        let nextTri = await this.getNextTriForCourse(courseId, queryRunner);
+        for (const moduleId of modulesToAddIds) {
           await queryRunner.query(
-            'INSERT IGNORE INTO module_course (module_id, course_id, created_at) VALUES (?, ?, NOW())',
-            [moduleId, courseId]
+            'INSERT IGNORE INTO module_course (module_id, course_id, tri) VALUES (?, ?, ?)',
+            [moduleId, courseId, nextTri]
           );
+          nextTri += 1;
         }
-        affectedCount += assignmentDto.add.length;
+        affectedCount += modulesToAddIds.length;
       }
 
       // Handle module removals
@@ -237,10 +315,11 @@ export class CourseService {
         throw new BadRequestException('Module is already assigned to this course');
       }
 
-      // Insert new relationship
+      const nextTri = await this.getNextTriForCourse(courseId, queryRunner);
+
       await queryRunner.query(
-        'INSERT INTO module_course (module_id, course_id, created_at) VALUES (?, ?, NOW())',
-        [moduleId, courseId]
+        'INSERT INTO module_course (module_id, course_id, tri) VALUES (?, ?, ?)',
+        [moduleId, courseId, nextTri]
       );
 
       await queryRunner.commitTransaction();

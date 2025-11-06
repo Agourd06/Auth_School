@@ -23,6 +23,7 @@ import { ProgramModule } from './programs/programs.module';
 import { LevelModule } from './level/level.module';
 import { SpecializationsModule } from './specializations/specializations.module';
 import { ClassModule } from './class/class.module';
+import { ClassStudentModule } from './class-student/class-student.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { ClassModule } from './class/class.module';
     LevelModule,
     SpecializationsModule,
     ClassModule,
+    ClassStudentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

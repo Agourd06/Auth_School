@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, In } from 'typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ModuleService } from './module.service';
 import { Module as ModuleEntity } from './entities/module.entity';
@@ -16,12 +16,15 @@ const createModuleRepoMock = () => ({
   remove: jest.fn(),
   createQueryBuilder: jest.fn(),
   findByIds: jest.fn(),
+  query: jest.fn(),
 }) as unknown as jest.Mocked<Repository<ModuleEntity>>;
 
 const createCourseRepoMock = () => ({
   findByIds: jest.fn(),
   findOne: jest.fn(),
   createQueryBuilder: jest.fn(),
+  find: jest.fn(),
+  query: jest.fn(),
 }) as unknown as jest.Mocked<Repository<Course>>;
 
 const createQueryBuilderMock = () => ({
@@ -82,13 +85,17 @@ describe('ModuleService', () => {
   });
 
   describe('create', () => {
-    it('should map fields, attach courses and save module', async () => {
+    it('should map fields, validate courses, and append assignments', async () => {
       const dto = { title: 'Algorithms', status: 1, course_ids: [1, 2] } as any;
       const courses = [{ id: 1 }, { id: 2 }] as Course[];
       const moduleEntity = { id: 1 } as ModuleEntity;
       courseRepo.findByIds!.mockResolvedValue(courses);
       moduleRepo.create!.mockReturnValue(moduleEntity);
       moduleRepo.save!.mockResolvedValue(moduleEntity);
+      moduleRepo.query!.mockResolvedValue(undefined);
+      const findOneSpy = jest
+        .spyOn(service, 'findOne')
+        .mockResolvedValue({ id: 1 } as ModuleEntity);
 
       const result = await service.create(dto);
 
@@ -96,9 +103,13 @@ describe('ModuleService', () => {
       expect(moduleRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ intitule: 'Algorithms', statut: 1 }),
       );
-      expect(moduleEntity.courses).toBe(courses);
       expect(moduleRepo.save).toHaveBeenCalledWith(moduleEntity);
-      expect(result).toBe(moduleEntity);
+      expect(moduleRepo.query).toHaveBeenNthCalledWith(1, 'DELETE FROM module_course WHERE module_id = ?', [moduleEntity.id]);
+      expect(moduleRepo.query).toHaveBeenNthCalledWith(2, 'INSERT INTO module_course (module_id, course_id, tri) VALUES (?, ?, ?)', [moduleEntity.id, 1, 0]);
+      expect(moduleRepo.query).toHaveBeenNthCalledWith(3, 'INSERT INTO module_course (module_id, course_id, tri) VALUES (?, ?, ?)', [moduleEntity.id, 2, 0]);
+      expect(findOneSpy).toHaveBeenCalledWith(moduleEntity.id);
+      expect(result).toEqual({ id: 1 });
+      findOneSpy.mockRestore();
     });
   });
 
@@ -174,25 +185,28 @@ describe('ModuleService', () => {
   });
 
   describe('update', () => {
-    it('should refresh fields and course associations', async () => {
-      const moduleEntity = { id: 1, courses: [] } as unknown as ModuleEntity;
+    it('should refresh fields and append assignments', async () => {
+      const moduleEntity = { id: 1 } as unknown as ModuleEntity;
       const dto = { title: 'Updated', status: 0, course_ids: [3] } as any;
       const courses = [{ id: 3 }] as Course[];
       const findOneSpy = jest
         .spyOn(service, 'findOne')
-        .mockResolvedValue(moduleEntity);
+        .mockResolvedValueOnce(moduleEntity)
+        .mockResolvedValueOnce({ id: 1, title: 'Updated' } as ModuleEntity);
       courseRepo.findByIds!.mockResolvedValue(courses);
       moduleRepo.save!.mockResolvedValue(moduleEntity);
+      moduleRepo.query!.mockResolvedValue(undefined);
 
       const result = await service.update(1, dto);
 
       expect(findOneSpy).toHaveBeenCalledWith(1);
       expect(courseRepo.findByIds).toHaveBeenCalledWith([3]);
-      expect(moduleEntity.courses).toBe(courses);
       expect(moduleEntity.intitule).toBe('Updated');
       expect(moduleEntity.statut).toBe(0);
       expect(moduleRepo.save).toHaveBeenCalledWith(moduleEntity);
-      expect(result).toBe(moduleEntity);
+      expect(moduleRepo.query).toHaveBeenNthCalledWith(1, 'DELETE FROM module_course WHERE module_id = ?', [moduleEntity.id]);
+      expect(moduleRepo.query).toHaveBeenNthCalledWith(2, 'INSERT INTO module_course (module_id, course_id, tri) VALUES (?, ?, ?)', [moduleEntity.id, 3, 0]);
+      expect(result).toEqual({ id: 1, title: 'Updated' });
       findOneSpy.mockRestore();
     });
   });
@@ -202,17 +216,21 @@ describe('ModuleService', () => {
       const findOneSpy = jest
         .spyOn(service, 'findOne')
         .mockResolvedValue({ id: 1 } as ModuleEntity);
-      const moduleQb = createQueryBuilderMock();
       const courseQb = createQueryBuilderMock();
-      moduleRepo.createQueryBuilder!.mockReturnValue(moduleQb as any);
       courseRepo.createQueryBuilder!.mockReturnValue(courseQb as any);
-      moduleQb.getOne.mockResolvedValue({ courses: [{ id: 1 }] });
-      courseQb.getMany.mockResolvedValue([{ id: 2 }]);
+      moduleRepo.query!.mockResolvedValueOnce([{ course_id: 3, tri: 2, created_at: new Date('2025-01-01T00:00:00Z') }]);
+      courseRepo.find!.mockResolvedValue([{ id: 3 } as Course]);
+      courseQb.getMany.mockResolvedValue([{ id: 2 }] as any);
 
       const result = await service.getModuleCourses(1);
 
       expect(findOneSpy).toHaveBeenCalledWith(1);
-      expect(result).toEqual({ assigned: [{ id: 1 }], unassigned: [{ id: 2 }] });
+      expect(moduleRepo.query).toHaveBeenCalledWith(
+        'SELECT course_id, tri, created_at FROM module_course WHERE module_id = ? ORDER BY tri ASC, created_at DESC',
+        [1],
+      );
+      expect(courseRepo.find).toHaveBeenCalledWith({ where: { id: In([3]) }, relations: ['company'] });
+      expect(result).toEqual({ assigned: [expect.objectContaining({ id: 3, tri: 2 })], unassigned: [{ id: 2 }] });
       findOneSpy.mockRestore();
     });
   });
@@ -235,8 +253,10 @@ describe('ModuleService', () => {
         .spyOn(service, 'findOne')
         .mockResolvedValue({ id: 1 } as ModuleEntity);
       courseRepo.findByIds!.mockResolvedValue([{ id: 4 }] as Course[]);
-      queryRunner.query.mockResolvedValueOnce([]); // insert ignore
-      queryRunner.query.mockResolvedValueOnce(undefined); // delete
+      queryRunner.query
+        .mockResolvedValueOnce([{ total: 7 }])
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
 
       const result = await service.batchManageModuleCourses(1, dto);
 
@@ -244,11 +264,16 @@ describe('ModuleService', () => {
       expect(courseRepo.findByIds).toHaveBeenCalledWith([4]);
       expect(queryRunner.query).toHaveBeenNthCalledWith(
         1,
-        'INSERT IGNORE INTO module_course (module_id, course_id, created_at) VALUES (?, ?, NOW())',
-        [1, 4],
+        'SELECT COUNT(*) as total FROM module_course WHERE course_id = ?',
+        [4],
       );
       expect(queryRunner.query).toHaveBeenNthCalledWith(
         2,
+        'INSERT IGNORE INTO module_course (module_id, course_id, tri) VALUES (?, ?, ?)',
+        [1, 4, 7],
+      );
+      expect(queryRunner.query).toHaveBeenNthCalledWith(
+        3,
         'DELETE FROM module_course WHERE module_id = ? AND course_id IN (?)',
         [1, dto.remove],
       );
@@ -262,14 +287,23 @@ describe('ModuleService', () => {
     it('should link course when relation absent', async () => {
       jest.spyOn(service, 'findOne').mockResolvedValue({ id: 1 } as ModuleEntity);
       courseRepo.findOne!.mockResolvedValue({ id: 2 } as Course);
-      queryRunner.query.mockResolvedValueOnce([]); // existing relation check
+      queryRunner.query
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ total: 0 }])
+        .mockResolvedValueOnce(undefined);
 
       const result = await service.addCourseToModule(1, 2);
 
       expect(courseRepo.findOne).toHaveBeenCalledWith({ where: { id: 2 }, relations: ['company'] });
-      expect(queryRunner.query).toHaveBeenCalledWith(
-        'INSERT INTO module_course (module_id, course_id, created_at) VALUES (?, ?, NOW())',
-        [1, 2],
+      expect(queryRunner.query).toHaveBeenNthCalledWith(
+        2,
+        'SELECT COUNT(*) as total FROM module_course WHERE course_id = ?',
+        [2],
+      );
+      expect(queryRunner.query).toHaveBeenNthCalledWith(
+        3,
+        'INSERT INTO module_course (module_id, course_id, tri) VALUES (?, ?, ?)',
+        [1, 2, 0],
       );
       expect(result).toEqual({ message: 'Course successfully assigned to module', course: { id: 2 } });
     });
