@@ -1,18 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, IsNumber, Min, Max, IsInt } from 'class-validator';
+import { IsOptional, IsNumber, Min, Max, IsInt } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateClassStudentDto {
-  @ApiProperty({ description: 'Assignment title', example: 'Fall 2025 placement' })
-  @IsString()
-  @IsNotEmpty()
-  title: string;
-
-  @ApiPropertyOptional({ description: 'Additional description of the assignment', example: 'Transferred from previous institution' })
-  @IsOptional()
-  @IsString()
-  description?: string;
-
   @ApiProperty({ description: 'Related class identifier', example: 12 })
   @Type(() => Number)
   @IsNumber()

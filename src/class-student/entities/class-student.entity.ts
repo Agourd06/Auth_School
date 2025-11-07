@@ -16,12 +16,6 @@ export class ClassStudent {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  title: string;
-
-  @Column({ nullable: true, type: 'text', name: 'desc' })
-  description: string;
-
   @Column({ nullable: true })
   company_id: number;
 

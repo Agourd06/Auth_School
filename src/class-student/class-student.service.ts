@@ -59,9 +59,10 @@ export class ClassStudentService {
     qb.andWhere('cs.status <> :deletedStatus', { deletedStatus: -2 });
 
     if (query.search) {
-      qb.andWhere('(cs.title LIKE :search OR cs.description LIKE :search)', {
-        search: `%${query.search}%`,
-      });
+      qb.andWhere(
+        '(class.title LIKE :search OR student.first_name LIKE :search OR student.last_name LIKE :search)',
+        { search: `%${query.search}%` },
+      );
     }
 
     if (query.status !== undefined) qb.andWhere('cs.status = :status', { status: query.status });

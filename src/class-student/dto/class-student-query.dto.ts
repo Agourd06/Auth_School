@@ -4,7 +4,7 @@ import { IsOptional, IsString, IsNumber, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ClassStudentQueryDto extends PaginationDto {
-  @ApiPropertyOptional({ description: 'Search phrase applied to title or description', example: 'placement' })
+  @ApiPropertyOptional({ description: 'Search phrase applied to class title or student name', example: 'Smith' })
   @IsOptional()
   @IsString()
   search?: string;

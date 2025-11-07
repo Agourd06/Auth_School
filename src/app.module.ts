@@ -24,6 +24,7 @@ import { LevelModule } from './level/level.module';
 import { SpecializationsModule } from './specializations/specializations.module';
 import { ClassModule } from './class/class.module';
 import { ClassStudentModule } from './class-student/class-student.module';
+import { StudentsPlanningsModule } from './students-plannings/students-plannings.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { ClassStudentModule } from './class-student/class-student.module';
     SpecializationsModule,
     ClassModule,
     ClassStudentModule,
+    StudentsPlanningsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
