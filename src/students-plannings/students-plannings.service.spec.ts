@@ -14,7 +14,7 @@ const createQueryBuilderMock = () => ({
   take: jest.fn().mockReturnThis(),
   getOne: jest.fn(),
   getManyAndCount: jest.fn(),
-});
+});   
 
 const createRepositoryMock = () => {
   const qb = createQueryBuilderMock();
