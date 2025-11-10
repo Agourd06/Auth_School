@@ -1,17 +1,10 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { Teacher } from '../../teachers/entities/teacher.entity';
 import { Specialization } from '../../specializations/entities/specialization.entity';
 import { ClassEntity } from '../../class/entities/class.entity';
 import { ClassRoom } from '../../class-rooms/entities/class-room.entity';
 import { Company } from '../../company/entities/company.entity';
+import { PlanningSessionType } from '../../planning-session-types/entities/planning-session-type.entity';
 
 @Entity('planning_students')
 export class StudentsPlanning {
@@ -48,6 +41,13 @@ export class StudentsPlanning {
   @ManyToOne(() => ClassRoom, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'class_room_id' })
   classRoom: ClassRoom;
+
+  @Column()
+  planning_session_type_id: number;
+
+  @ManyToOne(() => PlanningSessionType, { nullable: false, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'planning_session_type_id' })
+  planningSessionType: PlanningSessionType;
 
   @Column({ type: 'date' })
   date_day: string;

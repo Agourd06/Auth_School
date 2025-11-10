@@ -38,7 +38,7 @@ A NestJS-based authentication and school management system with JWT authenticati
    NODE_ENV=development
 
    # JWT Configuration
-   JWT_SECRET=your_jwt_secret_key
+   SECRET=your_jwt_secret_key
    JWT_EXPIRES_IN=24h
 
    # Email Configuration (for password reset)

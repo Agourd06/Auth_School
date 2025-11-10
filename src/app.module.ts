@@ -26,6 +26,8 @@ import { ClassModule } from './class/class.module';
 import { ClassStudentModule } from './class-student/class-student.module';
 import { StudentsPlanningsModule } from './students-plannings/students-plannings.module';
 import { ModuleCourseModule } from './module-course/module-course.module';
+import { PlanningSessionTypesModule } from './planning-session-types/planning-session-types.module';
+import { StudentPresenceModule } from './studentpresence/studentpresence.module';
 
 @Module({
   imports: [
@@ -44,7 +46,7 @@ import { ModuleCourseModule } from './module-course/module-course.module';
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_NAME || 'edusol_25',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: process.env.NODE_ENV !== 'production', // for dev only
+      synchronize: process.env.NODE_ENV !== 'production', 
     }),
     AuthModule,
     CompanyModule,
@@ -67,6 +69,8 @@ import { ModuleCourseModule } from './module-course/module-course.module';
     ClassStudentModule,
     StudentsPlanningsModule,
     ModuleCourseModule,
+    PlanningSessionTypesModule,
+    StudentPresenceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

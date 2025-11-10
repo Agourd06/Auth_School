@@ -7,7 +7,7 @@ import { StudentsPlanningQueryDto } from './dto/students-planning-query.dto';
 
 @ApiTags('Planning Students')
 @ApiBearerAuth()
-@Controller('planning-student')
+@Controller('students-plannings')
 export class StudentsPlanningsController {
   constructor(private readonly studentsPlanningsService: StudentsPlanningsService) {}
 

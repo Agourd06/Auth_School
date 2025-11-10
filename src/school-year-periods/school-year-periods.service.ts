@@ -84,11 +84,13 @@ export class SchoolYearPeriodsService {
     };
   }
 
+
   async findOne(id: number) {
     const period = await this.periodRepo.findOne({ where: { id, status: Not(-2) }, relations: ['schoolYear'] });
     if (!period) throw new NotFoundException('School year period not found');
     return period;
   }
+
 
   async update(id: number, dto: UpdateSchoolYearPeriodDto) {
     const period = await this.findOne(id);

@@ -33,6 +33,12 @@ export class StudentsPlanningQueryDto extends PaginationDto {
   @IsNumber()
   specialization_id?: number;
 
+  @ApiPropertyOptional({ description: 'Filter by planning session type identifier', example: 4 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  planning_session_type_id?: number;
+
   @ApiPropertyOptional({ description: 'Sort order for date and time', enum: ['ASC', 'DESC'], default: 'ASC' })
   @IsOptional()
   @IsIn(['ASC', 'DESC'])

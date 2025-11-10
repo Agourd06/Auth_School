@@ -39,13 +39,15 @@ export class StudentsPlanningsService {
       .leftJoinAndSelect('plan.specialization', 'specialization')
       .leftJoinAndSelect('plan.class', 'class')
       .leftJoinAndSelect('plan.classRoom', 'classRoom')
-      .leftJoinAndSelect('plan.company', 'company');
+      .leftJoinAndSelect('plan.company', 'company')
+      .leftJoinAndSelect('plan.planningSessionType', 'planningSessionType');
 
     if (query.status) qb.andWhere('plan.status = :status', { status: query.status });
     if (query.class_id) qb.andWhere('plan.class_id = :class_id', { class_id: query.class_id });
     if (query.class_room_id) qb.andWhere('plan.class_room_id = :class_room_id', { class_room_id: query.class_room_id });
     if (query.teacher_id) qb.andWhere('plan.teacher_id = :teacher_id', { teacher_id: query.teacher_id });
     if (query.specialization_id) qb.andWhere('plan.specialization_id = :specialization_id', { specialization_id: query.specialization_id });
+    if (query.planning_session_type_id) qb.andWhere('plan.planning_session_type_id = :planning_session_type_id', { planning_session_type_id: query.planning_session_type_id });
 
     qb.orderBy('plan.date_day', order as 'ASC' | 'DESC').addOrderBy('plan.hour_start', order as 'ASC' | 'DESC');
     qb.skip((page - 1) * limit).take(limit);
@@ -57,7 +59,7 @@ export class StudentsPlanningsService {
   async findOne(id: number): Promise<StudentsPlanning> {
     const found = await this.repo.findOne({
       where: { id },
-      relations: ['teacher', 'specialization', 'class', 'classRoom', 'company'],
+      relations: ['teacher', 'specialization', 'class', 'classRoom', 'company', 'planningSessionType'],
     });
     if (!found) throw new NotFoundException('Planning record not found');
     return found;

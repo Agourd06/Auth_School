@@ -32,6 +32,11 @@ export class CreateStudentsPlanningDto {
   @IsNumber()
   class_room_id: number;
 
+  @ApiProperty({ description: 'Planning session type identifier', example: 2 })
+  @Type(() => Number)
+  @IsNumber()
+  planning_session_type_id: number;
+
   @ApiProperty({ description: 'Session date', example: '2025-11-10' })
   @IsDateString()
   date_day: string;

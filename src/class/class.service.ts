@@ -34,7 +34,7 @@ export class ClassService {
       .leftJoinAndSelect('c.level', 'level')
       .leftJoinAndSelect('c.schoolYear', 'schoolYear')
       .leftJoinAndSelect('c.schoolYearPeriod', 'schoolYearPeriod');
-
+      
     qb.andWhere('c.status <> :deletedStatus', { deletedStatus: -2 });
 
     if (query.search) {
