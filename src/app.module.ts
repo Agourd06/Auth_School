@@ -28,6 +28,12 @@ import { StudentsPlanningsModule } from './students-plannings/students-plannings
 import { ModuleCourseModule } from './module-course/module-course.module';
 import { PlanningSessionTypesModule } from './planning-session-types/planning-session-types.module';
 import { StudentPresenceModule } from './studentpresence/studentpresence.module';
+import { StudentReportModule } from './student-report/student-report.module';
+import { StudentReportDetailModule } from './student-report-detail/student-report-detail.module';
+import { LevelPricingModule } from './level-pricing/level-pricing.module';
+import { StudentPaymentModule } from './student-payment/student-payment.module';
+import { AttestationModule } from './attestation/attestation.module';
+import { StudentattestationModule } from './studentattestation/studentattestation.module';
 
 @Module({
   imports: [
@@ -71,6 +77,12 @@ import { StudentPresenceModule } from './studentpresence/studentpresence.module'
     ModuleCourseModule,
     PlanningSessionTypesModule,
     StudentPresenceModule,
+    StudentReportModule,
+    StudentReportDetailModule,
+    LevelPricingModule,
+    StudentPaymentModule,
+    AttestationModule,
+    StudentattestationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

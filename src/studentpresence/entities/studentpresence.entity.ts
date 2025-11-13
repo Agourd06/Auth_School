@@ -46,8 +46,8 @@ export class StudentPresence {
   @JoinColumn({ name: 'company_id' })
   company?: Company;
 
-  @Column({ length: 50, default: 'active' })
-  status: string;
+  @Column({ type: 'int', default: 2, name: 'statut' })
+  status: number;
 
   @CreateDateColumn()
   created_at: Date;

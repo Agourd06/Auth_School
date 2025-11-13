@@ -1,18 +1,26 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { DataSource, Not, Repository } from 'typeorm';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentsQueryDto } from './dto/students-query.dto';
 import { Student } from './entities/student.entity';
 import { PaginatedResponseDto } from '../common/dto/pagination.dto';
 import { PaginationService } from '../common/services/pagination.service';
+import { ClassStudent } from '../class-student/entities/class-student.entity';
+import { StudentDiplome } from '../student-diplome/entities/student-diplome.entity';
+import { StudentPayment } from '../student-payment/entities/student-payment.entity';
+import { StudentReport } from '../student-report/entities/student-report.entity';
+import { StudentAttestation } from '../studentattestation/entities/studentattestation.entity';
+import { StudentPresence } from '../studentpresence/entities/studentpresence.entity';
+import { StudentContact } from '../student-contact/entities/student-contact.entity';
 
 @Injectable()
 export class StudentsService {
   constructor(
     @InjectRepository(Student)
     private studentRepository: Repository<Student>,
+    private dataSource: DataSource,
   ) {}
 
   async create(createStudentDto: CreateStudentDto): Promise<Student> {
@@ -81,7 +89,78 @@ export class StudentsService {
   }
 
   async remove(id: number): Promise<void> {
-    const existing = await this.findOne(id);
-    await this.studentRepository.remove(existing);
+    await this.softDeleteStudent(id);
+  }
+
+  async softDeleteStudent(id: number): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      // 1️⃣ Find the student first
+      const student = await manager.findOne(Student, { where: { id, status: Not(-2) } });
+      if (!student) {
+        throw new NotFoundException(`Student with ID ${id} not found`);
+      }
+
+      // 2️⃣ Update student status to -2 (soft delete)
+      await manager.update(Student, { id }, { status: -2 });
+
+      // 3️⃣ Update related tables (soft delete all related resources that are not already deleted)
+      // Using query builder for reliable updates in transaction
+      
+      // ClassStudent
+      await manager
+        .createQueryBuilder()
+        .update(ClassStudent)
+        .set({ status: -2 })
+        .where('student_id = :id AND statut <> :deletedStatus', { id, deletedStatus: -2 })
+        .execute();
+
+      // StudentDiplome
+      await manager
+        .createQueryBuilder()
+        .update(StudentDiplome)
+        .set({ status: -2 })
+        .where('student_id = :id AND statut <> :deletedStatus', { id, deletedStatus: -2 })
+        .execute();
+
+      // StudentPayment
+      await manager
+        .createQueryBuilder()
+        .update(StudentPayment)
+        .set({ status: -2 })
+        .where('student_id = :id AND statut <> :deletedStatus', { id, deletedStatus: -2 })
+        .execute();
+
+      // StudentReport
+      await manager
+        .createQueryBuilder()
+        .update(StudentReport)
+        .set({ status: -2 })
+        .where('student_id = :id AND statut <> :deletedStatus', { id, deletedStatus: -2 })
+        .execute();
+
+      // StudentAttestation (note: uses Idstudent and Status with capital S)
+      await manager
+        .createQueryBuilder()
+        .update(StudentAttestation)
+        .set({ Status: -2 })
+        .where('Idstudent = :id AND Status <> :deletedStatus', { id, deletedStatus: -2 })
+        .execute();
+
+      // StudentPresence
+      await manager
+        .createQueryBuilder()
+        .update(StudentPresence)
+        .set({ status: -2 })
+        .where('student_id = :id AND statut <> :deletedStatus', { id, deletedStatus: -2 })
+        .execute();
+
+      // StudentContact
+      await manager
+        .createQueryBuilder()
+        .update(StudentContact)
+        .set({ status: -2 })
+        .where('student_id = :id AND statut <> :deletedStatus', { id, deletedStatus: -2 })
+        .execute();
+    });
   }
 }

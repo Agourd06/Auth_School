@@ -43,6 +43,11 @@ export class CreateStudentContactDto {
   @IsString()
   country?: string;
 
+  @ApiProperty({ description: 'Student identifier', example: 1 })
+  @Type(() => Number)
+  @IsNumber()
+  student_id: number;
+
   @ApiPropertyOptional({ description: 'Relationship type identifier', example: 2 })
   @IsOptional()
   @Type(() => Number)

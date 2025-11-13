@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, Min, Max } from 'class-validator';
+import { IsInt, IsIn, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateStudentPresenceDto {
   @ApiProperty({ description: 'Related student planning identifier', example: 12 })
@@ -23,8 +23,6 @@ export class CreateStudentPresenceDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  @Min(-1)
-  @Max(20)
   note?: number;
 
   @ApiPropertyOptional({ description: 'Remarks about the student attendance', example: 'Arrived 10 minutes late' })
@@ -38,9 +36,10 @@ export class CreateStudentPresenceDto {
   @IsNumber()
   company_id?: number;
 
-  @ApiPropertyOptional({ description: 'Record status', enum: ['active', 'inactive'], default: 'active' })
+  @ApiPropertyOptional({ description: 'Status code ', example: 2, default: 2 })
   @IsOptional()
-  @IsString()
-  @IsIn(['active', 'inactive'])
-  status?: string;
+  @Type(() => Number)
+  @IsInt()
+  @IsIn([-2, -1, 0, 1, 2])
+  status?: number;
 }

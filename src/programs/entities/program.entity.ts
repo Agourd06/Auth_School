@@ -10,7 +10,7 @@ export class Program {
   @Column()
   title: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'longtext', nullable: true })
   description: string;
 
   @Column({ type: 'int', default: 1 })

@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { StudentLinkType } from '../../studentlinktype/entities/studentlinktype.entity';
 import { Company } from '../../company/entities/company.entity';
+import { Student } from '../../students/entities/student.entity';
 
 @Entity('student_contacts')
 export class StudentContact {
@@ -30,6 +31,13 @@ export class StudentContact {
 
   @Column({ nullable: true })
   country: string;
+
+  @Column({ nullable: true })
+  student_id: number;
+
+  @ManyToOne(() => Student, { nullable: true })
+  @JoinColumn({ name: 'student_id' })
+  student: Student;
 
   @Column({ nullable: true })
   studentlinktypeId: number;

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { CreateStudentPresenceDto } from './dto/create-studentpresence.dto';
 import { UpdateStudentPresenceDto } from './dto/update-studentpresence.dto';
 import { StudentPresence } from './entities/studentpresence.entity';
@@ -20,7 +20,7 @@ export class StudentPresenceService {
       ...dto,
       presence: dto.presence ?? 'absent',
       note: dto.note ?? -1,
-      status: dto.status ?? 'active',
+      status: dto.status ?? 2,
     });
 
     const saved = await this.repo.save(entity);
@@ -40,7 +40,9 @@ export class StudentPresenceService {
       .skip((page - 1) * limit)
       .take(limit);
 
-    if (query.status) {
+    qb.andWhere('presence.status <> :deletedStatus', { deletedStatus: -2 });
+
+    if (query.status !== undefined) {
       qb.andWhere('presence.status = :status', { status: query.status });
     }
 
@@ -60,7 +62,7 @@ export class StudentPresenceService {
 
   async findOne(id: number): Promise<StudentPresence> {
     const found = await this.repo.findOne({
-      where: { id },
+      where: { id, status: Not(-2) },
       relations: ['student', 'studentPlanning', 'company'],
     });
     if (!found) {
@@ -78,6 +80,7 @@ export class StudentPresenceService {
 
   async remove(id: number): Promise<void> {
     const existing = await this.findOne(id);
-    await this.repo.remove(existing);
+    existing.status = -2;
+    await this.repo.save(existing);
   }
 }

@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { StudentDiplomesQueryDto } from './dto/student-diplomes-query.dto';
 
-@ApiTags('Student Diplomas')
+@ApiTags('StudentDiplome')
 @ApiBearerAuth()
 @Controller('student-diplome')
 export class StudentDiplomeController {
@@ -17,7 +17,7 @@ export class StudentDiplomeController {
 
   @Post()
   @ApiConsumes('multipart/form-data')
-  @ApiResponse({ status: 201, description: 'Student diploma record created successfully.' })
+  @ApiResponse({ status: 201, description: 'StudentDiplome created successfully.' })
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'diplome_picture_1', maxCount: 1 },
@@ -43,31 +43,31 @@ export class StudentDiplomeController {
       limits: { fileSize: 2 * 1024 * 1024 },
     }),
   )
-  create(@UploadedFiles() files: { diplome_picture_1?: Express.Multer.File[]; diplome_picture_2?: Express.Multer.File[]; }, @Body() dto: CreateStudentDiplomeDto) {
+  create(@UploadedFiles() files: { diplome_picture_1?: Express.Multer.File[]; diplome_picture_2?: Express.Multer.File[]; }, @Body() createStudentDiplomeDto: CreateStudentDiplomeDto) {
     const f1 = files?.diplome_picture_1?.[0];
     const f2 = files?.diplome_picture_2?.[0];
     if (f1) {
       const relative = path.posix.join('uploads', 'student-diplomes', path.basename(f1.path));
-      (dto as any).diplome_picture_1 = `/${relative.replace(/\\/g, '/')}`;
+      (createStudentDiplomeDto as any).diplome_picture_1 = `/${relative.replace(/\\/g, '/')}`;
     }
     if (f2) {
       const relative = path.posix.join('uploads', 'student-diplomes', path.basename(f2.path));
-      (dto as any).diplome_picture_2 = `/${relative.replace(/\\/g, '/')}`;
+      (createStudentDiplomeDto as any).diplome_picture_2 = `/${relative.replace(/\\/g, '/')}`;
     }
     // sanitize text values possibly coming as [object Object]
     ['diplome_picture_1','diplome_picture_2'].forEach(k => {
-      const v: any = (dto as any)[k];
+      const v: any = (createStudentDiplomeDto as any)[k];
       if (v !== undefined && (typeof v !== 'string' || v === '[object Object]' || v === 'null' || v === 'undefined')) {
-        delete (dto as any)[k];
+        delete (createStudentDiplomeDto as any)[k];
       }
     });
-    return this.studentDiplomeService.create(dto);
+    return this.studentDiplomeService.create(createStudentDiplomeDto);
   }
 
   @Get()
   @ApiResponse({ status: 200, description: 'Retrieve student diplomas with pagination metadata.' })
-  findAll(@Query() query: StudentDiplomesQueryDto) {
-    return this.studentDiplomeService.findAll(query);
+  findAll(@Query() queryDto: StudentDiplomesQueryDto) {
+    return this.studentDiplomeService.findAll(queryDto);
   }
 
   @Get(':id')
@@ -78,7 +78,7 @@ export class StudentDiplomeController {
 
   @Patch(':id')
   @ApiConsumes('multipart/form-data')
-  @ApiResponse({ status: 200, description: 'Update a student diploma record.' })
+  @ApiResponse({ status: 200, description: 'Update a student diploma.' })
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'diplome_picture_1', maxCount: 1 },
@@ -107,29 +107,29 @@ export class StudentDiplomeController {
   update(
     @Param('id') id: string,
     @UploadedFiles() files: { diplome_picture_1?: Express.Multer.File[]; diplome_picture_2?: Express.Multer.File[]; },
-    @Body() dto: UpdateStudentDiplomeDto,
+    @Body() updateStudentDiplomeDto: UpdateStudentDiplomeDto,
   ) {
     const f1 = files?.diplome_picture_1?.[0];
     const f2 = files?.diplome_picture_2?.[0];
     if (f1) {
       const relative = path.posix.join('uploads', 'student-diplomes', path.basename(f1.path));
-      (dto as any).diplome_picture_1 = `/${relative.replace(/\\/g, '/')}`;
+      (updateStudentDiplomeDto as any).diplome_picture_1 = `/${relative.replace(/\\/g, '/')}`;
     }
     if (f2) {
       const relative = path.posix.join('uploads', 'student-diplomes', path.basename(f2.path));
-      (dto as any).diplome_picture_2 = `/${relative.replace(/\\/g, '/')}`;
+      (updateStudentDiplomeDto as any).diplome_picture_2 = `/${relative.replace(/\\/g, '/')}`;
     }
     ['diplome_picture_1','diplome_picture_2'].forEach(k => {
-      const v: any = (dto as any)[k];
+      const v: any = (updateStudentDiplomeDto as any)[k];
       if (v !== undefined && (typeof v !== 'string' || v === '[object Object]' || v === 'null' || v === 'undefined')) {
-        delete (dto as any)[k];
+        delete (updateStudentDiplomeDto as any)[k];
       }
     });
-    return this.studentDiplomeService.update(+id, dto);
+    return this.studentDiplomeService.update(+id, updateStudentDiplomeDto);
   }
 
   @Delete(':id')
-  @ApiResponse({ status: 200, description: 'Remove a student diploma record.' })
+  @ApiResponse({ status: 200, description: 'Soft delete a student diploma (sets status to -2).' })
   remove(@Param('id') id: string) {
     return this.studentDiplomeService.remove(+id);
   }

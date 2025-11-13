@@ -1,14 +1,15 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsOptional } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
 export class StudentPresenceQueryDto extends PaginationDto {
-  @ApiPropertyOptional({ description: 'Filter by status', enum: ['active', 'inactive'] })
+  @ApiPropertyOptional({ description: 'Filter by status code', example: 2 })
   @IsOptional()
-  @IsString()
-  @IsIn(['active', 'inactive'])
-  status?: string;
+  @Type(() => Number)
+  @IsInt()
+  @IsIn([-2, -1, 0, 1, 2])
+  status?: number;
 
   @ApiPropertyOptional({ description: 'Filter by student identifier', example: 45 })
   @IsOptional()

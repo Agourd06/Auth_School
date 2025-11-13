@@ -10,7 +10,7 @@ export class Level {
   @Column()
   title: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'longtext', nullable: true })
   description: string;
 
   @Column({ type: 'int', nullable: true, default: 1 })

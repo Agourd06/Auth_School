@@ -112,7 +112,7 @@ export class StudentsController {
   }
 
   @Delete(':id')
-  @ApiResponse({ status: 200, description: 'Remove a student record.' })
+  @ApiResponse({ status: 200, description: 'Soft delete a student and all related resources using transaction (sets status to -2).' })
   remove(@Param('id') id: string) {
     return this.studentsService.remove(+id);
   }

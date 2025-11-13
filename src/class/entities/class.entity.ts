@@ -22,7 +22,7 @@ export class ClassEntity {
   @Column()
   title: string;
 
-  @Column({ nullable: true, type: 'text' })
+  @Column({ type: 'longtext', nullable: true })
   description: string;
 
   @Column({ type: 'int', nullable: true, name: 'statut', default: 1 })

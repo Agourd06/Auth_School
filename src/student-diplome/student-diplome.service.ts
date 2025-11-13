@@ -65,6 +65,8 @@ export class StudentDiplomeService {
 
   async remove(id: number): Promise<void> {
     const existing = await this.findOne(id);
-    await this.repo.remove(existing);
+    // Soft delete: set status to -2
+    existing.status = -2;
+    await this.repo.save(existing);
   }
 }
