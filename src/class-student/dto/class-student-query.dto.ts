@@ -34,5 +34,11 @@ export class ClassStudentQueryDto extends PaginationDto {
   @Type(() => Number)
   @IsNumber()
   company_id?: number;
+
+  @ApiPropertyOptional({ description: 'Filter by school year identifier', example: 7 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  school_year_id?: number;
 }
 

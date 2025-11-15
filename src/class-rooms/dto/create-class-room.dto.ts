@@ -17,7 +17,7 @@ export class CreateClassRoomDto {
   @Min(0)
   capacity: number;
 
-  @ApiPropertyOptional({ description: 'Owning company identifier', example: 4 })
+  @ApiPropertyOptional({ description: 'Owning company identifier (automatically set from authenticated user)', example: 4 })
   @IsOptional()
   @IsNumber()
   company_id?: number;

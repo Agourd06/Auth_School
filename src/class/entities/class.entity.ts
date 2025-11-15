@@ -43,7 +43,7 @@ export class ClassEntity {
   @Column()
   school_year_id: number;
 
-  @Column()
+  @Column({ nullable: true })
   school_year_period_id: number;
 
   @ManyToOne(() => Company, { nullable: true })
@@ -66,7 +66,7 @@ export class ClassEntity {
   @JoinColumn({ name: 'school_year_id' })
   schoolYear: SchoolYear;
 
-  @ManyToOne(() => SchoolYearPeriod, { nullable: false, onDelete: 'CASCADE' })
+  @ManyToOne(() => SchoolYearPeriod, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'school_year_period_id' })
   schoolYearPeriod: SchoolYearPeriod;
 

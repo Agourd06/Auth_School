@@ -13,11 +13,4 @@ export class StudentLinkTypeQueryDto extends PaginationDto {
   @Min(-2)
   @Max(2)
   status?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  company_id?: number;
 }
-
-

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseInterceptors, UploadedFile, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { ApiBearerAuth, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { StudentsService } from './students.service';
 import { CreateStudentDto } from './dto/create-student.dto';
@@ -8,6 +8,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Students')
 @ApiBearerAuth()
@@ -16,6 +17,7 @@ export class StudentsController {
   constructor(private readonly studentsService: StudentsService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Student profile created successfully.' })
   @UseInterceptors(
@@ -42,7 +44,11 @@ export class StudentsController {
       limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
     }),
   )
-  create(@UploadedFile() file: any, @Body() createStudentDto: CreateStudentDto) {
+  create(@Request() req, @UploadedFile() file: any, @Body() createStudentDto: CreateStudentDto) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
     if (file) {
       const relative = path.posix.join('uploads', 'students', path.basename(file.path));
       createStudentDto.picture = `/${relative.replace(/\\/g, '/')}`;
@@ -52,22 +58,33 @@ export class StudentsController {
         delete (createStudentDto as any).picture;
       }
     }
-    return this.studentsService.create(createStudentDto);
+    return this.studentsService.create(createStudentDto, companyId);
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'List students with pagination metadata.' })
-  findAll(@Query() query: StudentsQueryDto) {
-    return this.studentsService.findAll(query);
+  findAll(@Request() req, @Query() query: StudentsQueryDto) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.studentsService.findAll(query, companyId);
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'Retrieve a single student profile.' })
-  findOne(@Param('id') id: string) {
-    return this.studentsService.findOne(+id);
+  findOne(@Request() req, @Param('id') id: string) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.studentsService.findOne(+id, companyId);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 200, description: 'Update a student profile.' })
   @UseInterceptors(
@@ -95,10 +112,15 @@ export class StudentsController {
     }),
   )
   update(
+    @Request() req,
     @Param('id') id: string,
     @UploadedFile() file: any,
     @Body() updateStudentDto: UpdateStudentDto,
   ) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
     if (file) {
       const relative = path.posix.join('uploads', 'students', path.basename(file.path));
       updateStudentDto.picture = `/${relative.replace(/\\/g, '/')}`;
@@ -108,12 +130,17 @@ export class StudentsController {
         delete (updateStudentDto as any).picture;
       }
     }
-    return this.studentsService.update(+id, updateStudentDto);
+    return this.studentsService.update(+id, updateStudentDto, companyId);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'Soft delete a student and all related resources using transaction (sets status to -2).' })
-  remove(@Param('id') id: string) {
-    return this.studentsService.remove(+id);
+  remove(@Request() req, @Param('id') id: string) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.studentsService.remove(+id, companyId);
   }
 }

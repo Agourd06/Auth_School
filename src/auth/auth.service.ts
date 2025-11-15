@@ -26,14 +26,22 @@ export class AuthService {
 
       const payload = {
         userId: user.id,
+        companyId: user.company_id,
       };
 
       return {
         token: this.jwtService.sign(payload, { expiresIn: '1h' }),
         user: {
+          id: user.id,
           email: user.email,
           username: user.username,
           role: user.role,
+          company_id: user.company_id,
+          company: user.company ? {
+            id: user.company.id,
+            name: user.company.name,
+            email: user.company.email,
+          } : null,
         }
       };
     } catch (error) {

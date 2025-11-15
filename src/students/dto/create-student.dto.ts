@@ -64,7 +64,7 @@ export class CreateStudentDto {
   @Max(2)
   status?: number;
 
-  @ApiPropertyOptional({ description: 'Company identifier', example: 4 })
+  @ApiPropertyOptional({ description: 'Owning company identifier (automatically set from authenticated user)', example: 4 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

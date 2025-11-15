@@ -31,7 +31,8 @@ export class CreateStudentAttestationDto {
   @Max(2)
   Status?: number;
 
-  @ApiProperty({ description: 'Owning company identifier', example: 4 })
+  @ApiPropertyOptional({ description: 'Owning company identifier (automatically set from authenticated user)', example: 4 })
+  @IsOptional()
   @IsInt()
-  companyid: number;
+  companyid?: number;
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
 import { CreateStudentPresenceDto } from './dto/create-studentpresence.dto';
@@ -7,27 +7,51 @@ import { StudentPresence } from './entities/studentpresence.entity';
 import { StudentPresenceQueryDto } from './dto/studentpresence-query.dto';
 import { PaginatedResponseDto } from '../common/dto/pagination.dto';
 import { PaginationService } from '../common/services/pagination.service';
+import { Student } from '../students/entities/student.entity';
+import { StudentsPlanning } from '../students-plannings/entities/students-planning.entity';
 
 @Injectable()
 export class StudentPresenceService {
   constructor(
     @InjectRepository(StudentPresence)
     private readonly repo: Repository<StudentPresence>,
+    @InjectRepository(Student)
+    private readonly studentRepo: Repository<Student>,
+    @InjectRepository(StudentsPlanning)
+    private readonly planningRepo: Repository<StudentsPlanning>,
   ) {}
 
-  async create(dto: CreateStudentPresenceDto): Promise<StudentPresence> {
+  async create(dto: CreateStudentPresenceDto, companyId: number): Promise<StudentPresence> {
+    // Verify student exists and belongs to the same company
+    const student = await this.studentRepo.findOne({
+      where: { id: dto.student_id, company_id: companyId, status: Not(-2) },
+    });
+    if (!student) {
+      throw new NotFoundException(`Student with ID ${dto.student_id} not found or does not belong to your company`);
+    }
+
+    // Verify student planning exists and belongs to the same company
+    const planning = await this.planningRepo.findOne({
+      where: { id: dto.student_planning_id, company_id: companyId, status: Not(-2) },
+    });
+    if (!planning) {
+      throw new NotFoundException(`Student planning with ID ${dto.student_planning_id} not found or does not belong to your company`);
+    }
+
+    // Always set company_id from authenticated user
     const entity = this.repo.create({
       ...dto,
       presence: dto.presence ?? 'absent',
       note: dto.note ?? -1,
       status: dto.status ?? 2,
+      company_id: companyId,
     });
 
     const saved = await this.repo.save(entity);
-    return this.findOne(saved.id);
+    return this.findOne(saved.id, companyId);
   }
 
-  async findAll(query: StudentPresenceQueryDto): Promise<PaginatedResponseDto<StudentPresence>> {
+  async findAll(query: StudentPresenceQueryDto, companyId: number): Promise<PaginatedResponseDto<StudentPresence>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
 
@@ -41,6 +65,8 @@ export class StudentPresenceService {
       .take(limit);
 
     qb.andWhere('presence.status <> :deletedStatus', { deletedStatus: -2 });
+    // Always filter by company_id from authenticated user
+    qb.andWhere('presence.company_id = :company_id', { company_id: companyId });
 
     if (query.status !== undefined) {
       qb.andWhere('presence.status = :status', { status: query.status });
@@ -60,9 +86,9 @@ export class StudentPresenceService {
     return PaginationService.createResponse(data, page, limit, total);
   }
 
-  async findOne(id: number): Promise<StudentPresence> {
+  async findOne(id: number, companyId: number): Promise<StudentPresence> {
     const found = await this.repo.findOne({
-      where: { id, status: Not(-2) },
+      where: { id, company_id: companyId, status: Not(-2) },
       relations: ['student', 'studentPlanning', 'company'],
     });
     if (!found) {
@@ -71,15 +97,43 @@ export class StudentPresenceService {
     return found;
   }
 
-  async update(id: number, dto: UpdateStudentPresenceDto): Promise<StudentPresence> {
-    const existing = await this.findOne(id);
-    const merged = this.repo.merge(existing, dto);
+  async update(id: number, dto: UpdateStudentPresenceDto, companyId: number): Promise<StudentPresence> {
+    const existing = await this.findOne(id, companyId);
+
+    // If student_id is being updated, verify it belongs to the same company
+    if (dto.student_id !== undefined) {
+      const student = await this.studentRepo.findOne({
+        where: { id: dto.student_id, company_id: companyId, status: Not(-2) },
+      });
+      if (!student) {
+        throw new NotFoundException(`Student with ID ${dto.student_id} not found or does not belong to your company`);
+      }
+    }
+
+    // If student_planning_id is being updated, verify it belongs to the same company
+    if (dto.student_planning_id !== undefined) {
+      const planning = await this.planningRepo.findOne({
+        where: { id: dto.student_planning_id, company_id: companyId, status: Not(-2) },
+      });
+      if (!planning) {
+        throw new NotFoundException(`Student planning with ID ${dto.student_planning_id} not found or does not belong to your company`);
+      }
+    }
+
+    // Prevent changing company_id - always use authenticated user's company
+    const dtoWithoutCompany = { ...dto };
+    delete (dtoWithoutCompany as any).company_id;
+
+    const merged = this.repo.merge(existing, dtoWithoutCompany);
+    // Ensure company_id remains from authenticated user
+    merged.company_id = companyId;
+    merged.company = { id: companyId } as any;
     await this.repo.save(merged);
-    return this.findOne(id);
+    return this.findOne(id, companyId);
   }
 
-  async remove(id: number): Promise<void> {
-    const existing = await this.findOne(id);
+  async remove(id: number, companyId: number): Promise<void> {
+    const existing = await this.findOne(id, companyId);
     existing.status = -2;
     await this.repo.save(existing);
   }

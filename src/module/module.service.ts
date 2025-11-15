@@ -20,21 +20,26 @@ export class ModuleService {
     private dataSource: DataSource,
   ) {}
 
-  async create(createModuleDto: CreateModuleDto): Promise<Module> {
+  async create(createModuleDto: CreateModuleDto, companyId: number): Promise<Module> {
+    // Always set company_id from authenticated user
     const moduleData = {
       ...createModuleDto,
       intitule: createModuleDto.title,
       statut: createModuleDto.status,
+      company_id: companyId,
     };
     const module = this.moduleRepository.create(moduleData);
 
     if (createModuleDto.course_ids?.length) {
       const uniqueCourseIds = this.normalizeIds(createModuleDto.course_ids);
-      const courses = await this.courseRepository.findByIds(uniqueCourseIds);
+      // Verify courses exist and belong to the same company
+      const courses = await this.courseRepository.find({
+        where: { id: In(uniqueCourseIds), company_id: companyId },
+      });
       if (courses.length !== uniqueCourseIds.length) {
         const foundIds = courses.map(course => course.id);
         const missingIds = uniqueCourseIds.filter(courseId => !foundIds.includes(courseId));
-        throw new NotFoundException(`Courses with IDs ${missingIds.join(', ')} not found`);
+        throw new NotFoundException(`Courses with IDs ${missingIds.join(', ')} not found or do not belong to your company`);
       }
     }
 
@@ -44,17 +49,17 @@ export class ModuleService {
       await this.replaceModuleCoursesWithTri(savedModule.id, createModuleDto.course_ids);
     }
 
-    return this.findOne(savedModule.id);
+    return this.findOne(savedModule.id, companyId);
   }
 
-  async findAll(): Promise<Module[]> {
+  async findAll(companyId: number): Promise<Module[]> {
     return await this.moduleRepository.find({
-      where: { statut: Not(-2) } as any,
+      where: { company_id: companyId, statut: Not(-2) } as any,
       relations: ['company', 'courses'],
     });
   }
 
-  async findAllWithPagination(queryDto: ModuleQueryDto): Promise<PaginatedResponseDto<Module>> {
+  async findAllWithPagination(queryDto: ModuleQueryDto, companyId: number): Promise<PaginatedResponseDto<Module>> {
     const { page = 1, limit = 10, search, status } = queryDto;
     const skip = (page - 1) * limit;
 
@@ -67,6 +72,8 @@ export class ModuleService {
       .orderBy('module.created_at', 'DESC');
 
     queryBuilder.andWhere('module.statut <> :deletedStatus', { deletedStatus: -2 });
+    // Always filter by company_id from authenticated user
+    queryBuilder.andWhere('module.company_id = :company_id', { company_id: companyId });
 
     // Add search filter
     if (search) {
@@ -83,9 +90,9 @@ export class ModuleService {
     return PaginationService.createResponse(modules, page, limit, total);
   }
 
-  async findOne(id: number): Promise<Module> {
+  async findOne(id: number, companyId: number): Promise<Module> {
     const module = await this.moduleRepository.findOne({
-      where: { id },
+      where: { id, company_id: companyId },
       relations: ['company', 'courses'],
     });
     
@@ -96,38 +103,46 @@ export class ModuleService {
     return module;
   }
 
-  async update(id: number, updateModuleDto: UpdateModuleDto): Promise<Module> {
-    const module = await this.findOne(id);
+  async update(id: number, updateModuleDto: UpdateModuleDto, companyId: number): Promise<Module> {
+    const module = await this.findOne(id, companyId);
 
     if (updateModuleDto.course_ids !== undefined) {
       const uniqueCourseIds = this.normalizeIds(updateModuleDto.course_ids);
       if (uniqueCourseIds.length) {
-        const courses = await this.courseRepository.findByIds(uniqueCourseIds);
+        // Verify courses exist and belong to the same company
+        const courses = await this.courseRepository.find({
+          where: { id: In(uniqueCourseIds), company_id: companyId },
+        });
         if (courses.length !== uniqueCourseIds.length) {
           const foundIds = courses.map(course => course.id);
           const missingIds = uniqueCourseIds.filter(courseId => !foundIds.includes(courseId));
-          throw new NotFoundException(`Courses with IDs ${missingIds.join(', ')} not found`);
+          throw new NotFoundException(`Courses with IDs ${missingIds.join(', ')} not found or do not belong to your company`);
         }
       }
     }
 
+    // Prevent changing company_id - always use authenticated user's company
     const updateData = {
       ...updateModuleDto,
       intitule: updateModuleDto.title,
       statut: updateModuleDto.status,
     };
+    delete (updateData as any).company_id;
     Object.assign(module, updateData);
+    // Ensure company_id remains from authenticated user
+    module.company_id = companyId;
+    module.company = { id: companyId } as any;
     const savedModule = await this.moduleRepository.save(module);
 
     if (updateModuleDto.course_ids !== undefined) {
       await this.replaceModuleCoursesWithTri(savedModule.id, updateModuleDto.course_ids);
     }
 
-    return this.findOne(savedModule.id);
+    return this.findOne(savedModule.id, companyId);
   }
 
-  async remove(id: number): Promise<void> {
-    const module = await this.findOne(id);
+  async remove(id: number, companyId: number): Promise<void> {
+    const module = await this.findOne(id, companyId);
     await this.moduleRepository.remove(module);
   }
 
@@ -168,7 +183,7 @@ export class ModuleService {
     return Number(value) || 0;
   }
 
-  private async fetchAssignedCoursesWithTri(moduleId: number): Promise<Array<Course & { tri: number; assignment_created_at: Date }>> {
+  private async fetchAssignedCoursesWithTri(moduleId: number, companyId: number): Promise<Array<Course & { tri: number; assignment_created_at: Date }>> {
     const assignments = await this.moduleRepository.query(
       'SELECT course_id, tri, created_at FROM module_course WHERE module_id = ? ORDER BY tri ASC, created_at DESC',
       [moduleId],
@@ -177,8 +192,9 @@ export class ModuleService {
     if (!assignments.length) return [];
 
     const courseIds = assignments.map((row: any) => row.course_id);
+    // Only fetch courses that belong to the same company
     const courses = await this.courseRepository.find({
-      where: { id: In(courseIds) },
+      where: { id: In(courseIds), company_id: companyId },
       relations: ['company'],
     });
 
@@ -200,16 +216,19 @@ export class ModuleService {
   /**
    * Get courses assigned and unassigned to a module for drag-and-drop interface
    */
-  async getModuleCourses(moduleId: number): Promise<ModuleCoursesResponseDto> {
-    // Verify module exists
-    await this.findOne(moduleId);
+  async getModuleCourses(moduleId: number, companyId: number): Promise<ModuleCoursesResponseDto> {
+    // Verify module exists and belongs to company
+    await this.findOne(moduleId, companyId);
 
-    const assignedCourses = await this.fetchAssignedCoursesWithTri(moduleId);
+    const assignedCourses = await this.fetchAssignedCoursesWithTri(moduleId, companyId);
 
+    // Only show unassigned courses from the same company
     const unassignedCourses = await this.courseRepository
       .createQueryBuilder('course')
       .leftJoinAndSelect('course.company', 'company')
-      .where('course.id NOT IN (SELECT mc.course_id FROM module_course mc WHERE mc.module_id = :moduleId)', { moduleId })
+      .where('course.company_id = :companyId', { companyId })
+      .andWhere('course.id NOT IN (SELECT mc.course_id FROM module_course mc WHERE mc.module_id = :moduleId)', { moduleId })
+      .andWhere('course.statut <> :deletedStatus', { deletedStatus: -2 })
       .orderBy('course.created_at', 'DESC')
       .getMany();
 
@@ -222,9 +241,9 @@ export class ModuleService {
   /**
    * Batch assign/unassign courses to/from a module
    */
-  async batchManageModuleCourses(moduleId: number, assignmentDto: CourseAssignmentDto): Promise<{ message: string; affected: number }> {
-    // Verify module exists
-    await this.findOne(moduleId);
+  async batchManageModuleCourses(moduleId: number, assignmentDto: CourseAssignmentDto, companyId: number): Promise<{ message: string; affected: number }> {
+    // Verify module exists and belongs to company
+    await this.findOne(moduleId, companyId);
 
     if (!assignmentDto.add?.length && !assignmentDto.remove?.length) {
       throw new BadRequestException('At least one operation (add or remove) must be specified');
@@ -240,11 +259,14 @@ export class ModuleService {
       // Handle course additions
       if (assignmentDto.add?.length) {
         const coursesToAddIds = this.normalizeIds(assignmentDto.add);
-        const coursesToAdd = await this.courseRepository.findByIds(coursesToAddIds);
+        // Verify courses exist and belong to the same company
+        const coursesToAdd = await this.courseRepository.find({
+          where: { id: In(coursesToAddIds), company_id: companyId },
+        });
         if (coursesToAdd.length !== coursesToAddIds.length) {
           const foundIds = coursesToAdd.map(c => c.id);
           const missingIds = coursesToAddIds.filter(id => !foundIds.includes(id));
-          throw new NotFoundException(`Courses with IDs ${missingIds.join(', ')} not found`);
+          throw new NotFoundException(`Courses with IDs ${missingIds.join(', ')} not found or do not belong to your company`);
         }
 
         for (const courseId of coursesToAddIds) {
@@ -284,18 +306,18 @@ export class ModuleService {
   /**
    * Add a single course to a module
    */
-  async addCourseToModule(moduleId: number, courseId: number): Promise<{ message: string; course: any }> {
-    // Verify module exists
-    await this.findOne(moduleId);
+  async addCourseToModule(moduleId: number, courseId: number, companyId: number): Promise<{ message: string; course: any }> {
+    // Verify module exists and belongs to company
+    await this.findOne(moduleId, companyId);
 
-    // Verify course exists
+    // Verify course exists and belongs to the same company
     const course = await this.courseRepository.findOne({ 
-      where: { id: courseId },
+      where: { id: courseId, company_id: companyId },
       relations: ['company']
     });
     
     if (!course) {
-      throw new NotFoundException(`Course with ID ${courseId} not found`);
+      throw new NotFoundException(`Course with ID ${courseId} not found or does not belong to your company`);
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -336,9 +358,9 @@ export class ModuleService {
   /**
    * Remove a single course from a module
    */
-  async removeCourseFromModule(moduleId: number, courseId: number): Promise<{ message: string }> {
-    // Verify module exists
-    await this.findOne(moduleId);
+  async removeCourseFromModule(moduleId: number, courseId: number, companyId: number): Promise<{ message: string }> {
+    // Verify module exists and belongs to company
+    await this.findOne(moduleId, companyId);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();

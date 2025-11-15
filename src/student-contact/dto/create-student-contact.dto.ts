@@ -62,7 +62,7 @@ export class CreateStudentContactDto {
   @Max(2)
   status?: number;
 
-  @ApiPropertyOptional({ description: 'Company identifier', example: 5 })
+  @ApiPropertyOptional({ description: 'Company identifier (automatically set from authenticated user)', example: 5 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

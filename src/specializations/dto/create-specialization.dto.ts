@@ -13,7 +13,7 @@ export class CreateSpecializationDto {
   @IsNumber()
   program_id: number;
 
-  @ApiPropertyOptional({ description: 'Company identifier', example: 4 })
+  @ApiPropertyOptional({ description: 'Company identifier (automatically set from authenticated user)', example: 4 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

@@ -33,12 +33,13 @@ export class CreateClassDto {
   @IsNumber()
   school_year_id: number;
 
-  @ApiProperty({ description: 'School year period identifier', example: 14 })
+  @ApiPropertyOptional({ description: 'School year period identifier (optional)', example: 14 })
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  school_year_period_id: number;
+  school_year_period_id?: number;
 
-  @ApiPropertyOptional({ description: 'Owning company identifier', example: 1 })
+  @ApiPropertyOptional({ description: 'Owning company identifier (automatically set from authenticated user)', example: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

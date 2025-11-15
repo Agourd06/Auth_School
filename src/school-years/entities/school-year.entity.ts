@@ -19,6 +19,9 @@ export class SchoolYear {
   @Column({ type: 'int', default: 2 , name: 'statut' })
   status: number;
 
+  @Column({ type: 'enum', enum: ['planned', 'ongoing', 'completed'], default: 'planned', name: 'lifecycle_status' })
+  lifecycle_status: 'planned' | 'ongoing' | 'completed';
+
   @ManyToOne(() => Company, (company) => company.schoolYears, { eager: true })
   company: Company;
 

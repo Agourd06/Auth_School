@@ -28,7 +28,7 @@ export class CreateModuleDto {
   @Max(2)
   status?: number;
 
-  @ApiPropertyOptional({ description: 'Company identifier responsible for the module', example: 4 })
+  @ApiPropertyOptional({ description: 'Company identifier (automatically set from authenticated user)', example: 4 })
   @IsOptional()
   @IsNumber()
   company_id?: number;

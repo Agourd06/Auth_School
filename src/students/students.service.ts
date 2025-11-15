@@ -14,26 +14,47 @@ import { StudentReport } from '../student-report/entities/student-report.entity'
 import { StudentAttestation } from '../studentattestation/entities/studentattestation.entity';
 import { StudentPresence } from '../studentpresence/entities/studentpresence.entity';
 import { StudentContact } from '../student-contact/entities/student-contact.entity';
+import { ClassRoom } from '../class-rooms/entities/class-room.entity';
 
 @Injectable()
 export class StudentsService {
   constructor(
     @InjectRepository(Student)
     private studentRepository: Repository<Student>,
+    @InjectRepository(ClassRoom)
+    private classRoomRepository: Repository<ClassRoom>,
     private dataSource: DataSource,
   ) {}
 
-  async create(createStudentDto: CreateStudentDto): Promise<Student> {
+  async create(createStudentDto: CreateStudentDto, companyId: number): Promise<Student> {
     try {
-      const created = this.studentRepository.create(createStudentDto);
+      // Verify class room exists and belongs to the same company if provided
+      if (createStudentDto.class_room_id) {
+        const classRoom = await this.classRoomRepository.findOne({
+          where: { id: createStudentDto.class_room_id, company_id: companyId, status: Not(-2) },
+        });
+        if (!classRoom) {
+          throw new NotFoundException(`Class room with ID ${createStudentDto.class_room_id} not found or does not belong to your company`);
+        }
+      }
+
+      // Always set company_id from authenticated user
+      const dtoWithCompany = {
+        ...createStudentDto,
+        company_id: companyId,
+      };
+      const created = this.studentRepository.create(dtoWithCompany);
       const saved = await this.studentRepository.save(created);
-      return this.findOne(saved.id); // Return with relations loaded
+      return this.findOne(saved.id, companyId); // Return with relations loaded
     } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
       throw new BadRequestException('Failed to create student');
     }
   }
 
-  async findAll(query: StudentsQueryDto): Promise<PaginatedResponseDto<Student>> {
+  async findAll(query: StudentsQueryDto, companyId: number): Promise<PaginatedResponseDto<Student>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const qb = this.studentRepository.createQueryBuilder('s')
@@ -41,6 +62,8 @@ export class StudentsService {
       .leftJoinAndSelect('s.company', 'company');
 
     qb.andWhere('s.status <> :deletedStatus', { deletedStatus: -2 });
+    // Always filter by company_id from authenticated user
+    qb.andWhere('s.company_id = :company_id', { company_id: companyId });
 
     if (query.search) {
       qb.andWhere(
@@ -49,7 +72,6 @@ export class StudentsService {
       );
     }
 
-    if (query.company_id) qb.andWhere('s.company_id = :company_id', { company_id: query.company_id });
     if (query.class_room_id) qb.andWhere('s.class_room_id = :class_room_id', { class_room_id: query.class_room_id });
     if (query.status !== undefined) qb.andWhere('s.status = :status', { status: query.status });
 
@@ -59,20 +81,36 @@ export class StudentsService {
     return PaginationService.createResponse(data, page, limit, total);
   }
 
-  async findOne(id: number): Promise<Student> {
+  async findOne(id: number, companyId: number): Promise<Student> {
     const found = await this.studentRepository.findOne({
-      where: { id, status: Not(-2) },
+      where: { id, company_id: companyId, status: Not(-2) },
       relations: ['classRoom', 'company'],
     });
     if (!found) throw new NotFoundException('Student not found');
     return found;
   }
 
-  async update(id: number, updateStudentDto: UpdateStudentDto): Promise<Student> {
-    const existing = await this.findOne(id);
-    const merged = this.studentRepository.merge(existing, updateStudentDto);
+  async update(id: number, updateStudentDto: UpdateStudentDto, companyId: number): Promise<Student> {
+    const existing = await this.findOne(id, companyId);
+
+    // If class_room_id is being updated, verify it belongs to the same company
+    if (updateStudentDto.class_room_id !== undefined) {
+      if (updateStudentDto.class_room_id) {
+        const classRoom = await this.classRoomRepository.findOne({
+          where: { id: updateStudentDto.class_room_id, company_id: companyId, status: Not(-2) },
+        });
+        if (!classRoom) {
+          throw new NotFoundException(`Class room with ID ${updateStudentDto.class_room_id} not found or does not belong to your company`);
+        }
+      }
+    }
+
+    // Prevent changing company_id - always use authenticated user's company
+    const dtoWithoutCompany = { ...updateStudentDto };
+    delete (dtoWithoutCompany as any).company_id;
+
+    const merged = this.studentRepository.merge(existing, dtoWithoutCompany);
     const relationMappings = {
-      company_id: 'company',
       class_room_id: 'classRoom',
     } as const;
 
@@ -80,22 +118,31 @@ export class StudentsService {
       const value = (updateStudentDto as any)[idProp];
       if (value !== undefined) {
         (merged as any)[idProp] = value;
-        (merged as any)[relationProp] = value ? ({ id: value } as any) : undefined;
+        // Handle optional relations (class_room_id) - allow null
+        if (idProp === 'class_room_id') {
+          (merged as any)[relationProp] = value ? ({ id: value } as any) : null;
+        } else {
+          (merged as any)[relationProp] = value ? ({ id: value } as any) : undefined;
+        }
       }
     });
 
+    // Ensure company_id remains from authenticated user
+    merged.company_id = companyId;
+    merged.company = { id: companyId } as any;
+
     await this.studentRepository.save(merged);
-    return this.findOne(id); // Return with relations loaded
+    return this.findOne(id, companyId); // Return with relations loaded
   }
 
-  async remove(id: number): Promise<void> {
-    await this.softDeleteStudent(id);
+  async remove(id: number, companyId: number): Promise<void> {
+    await this.softDeleteStudent(id, companyId);
   }
 
-  async softDeleteStudent(id: number): Promise<void> {
+  async softDeleteStudent(id: number, companyId: number): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
-      // 1️⃣ Find the student first
-      const student = await manager.findOne(Student, { where: { id, status: Not(-2) } });
+      // 1️⃣ Find the student first and verify it belongs to the company
+      const student = await manager.findOne(Student, { where: { id, company_id: companyId, status: Not(-2) } });
       if (!student) {
         throw new NotFoundException(`Student with ID ${id} not found`);
       }

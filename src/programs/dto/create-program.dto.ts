@@ -13,7 +13,7 @@ export class CreateProgramDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Owning company identifier', example: 12 })
+  @ApiPropertyOptional({ description: 'Owning company identifier (automatically set from authenticated user)', example: 12 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

@@ -16,7 +16,7 @@ export class CreateStudentLinkTypeDto {
   @Max(2)
   status?: number;
 
-  @ApiPropertyOptional({ description: 'Company identifier', example: 6 })
+  @ApiPropertyOptional({ description: 'Owning company identifier (automatically set from authenticated user)', example: 6 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

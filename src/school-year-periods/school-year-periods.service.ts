@@ -29,9 +29,16 @@ export class SchoolYearPeriodsService {
     return Number.isNaN(parsed) ? 2 : parsed;
   }
 
-  async create(dto: CreateSchoolYearPeriodDto) {
-    const parent = await this.schoolYearRepo.findOne({ where: { id: dto.schoolYearId, status: Not(-2) } });
+  async create(dto: CreateSchoolYearPeriodDto, companyId: number) {
+    // Verify school year exists and belongs to the same company
+    const parent = await this.schoolYearRepo.findOne({ 
+      where: { id: dto.schoolYearId, status: Not(-2) },
+      relations: ['company']
+    });
     if (!parent) throw new NotFoundException('Parent school year not found');
+    if (parent.company?.id !== companyId) {
+      throw new BadRequestException('School year does not belong to your company');
+    }
 
     const start = new Date(dto.start_date);
     const end = new Date(dto.end_date);
@@ -42,17 +49,21 @@ export class SchoolYearPeriodsService {
       throw new BadRequestException('end_date must be greater than start_date');
     }
 
+    // Always set company_id from authenticated user
     const period = this.periodRepo.create({
       title: dto.title,
       start_date: dto.start_date,
       end_date: dto.end_date,
       status: this.mapStatus(dto.status),
+      lifecycle_status: dto.lifecycle_status || 'planned',
+      company_id: companyId,
+      school_year_id: dto.schoolYearId,
       schoolYear: parent,
     });
     return this.periodRepo.save(period);
   }
 
-  async findAll(query?: SchoolYearPeriodQueryDto) {
+  async findAll(query: SchoolYearPeriodQueryDto | undefined, companyId: number) {
     const q = query ?? ({} as SchoolYearPeriodQueryDto);
     const page = Math.max(1, q.page || 1);
     const limit = Math.min(100, q.limit || 10);
@@ -61,6 +72,8 @@ export class SchoolYearPeriodsService {
     const qb = this.periodRepo.createQueryBuilder('p').leftJoinAndSelect('p.schoolYear', 'schoolYear');
 
     qb.andWhere('p.status <> :deletedStatus', { deletedStatus: -2 });
+    // Always filter by company_id from authenticated user
+    qb.andWhere('p.company_id = :company_id', { company_id: companyId });
 
     if (q.title) {
       qb.andWhere('p.title LIKE :title', { title: `%${q.title}%` });
@@ -68,6 +81,10 @@ export class SchoolYearPeriodsService {
 
     if (typeof q.status === 'number') {
       qb.andWhere('p.status = :status', { status: q.status });
+    }
+
+    if (q.lifecycle_status) {
+      qb.andWhere('p.lifecycle_status = :lifecycleStatus', { lifecycleStatus: q.lifecycle_status });
     }
 
     qb.orderBy('p.id', 'DESC').skip(offset).take(limit);
@@ -85,19 +102,30 @@ export class SchoolYearPeriodsService {
   }
 
 
-  async findOne(id: number) {
-    const period = await this.periodRepo.findOne({ where: { id, status: Not(-2) }, relations: ['schoolYear'] });
+  async findOne(id: number, companyId: number) {
+    const period = await this.periodRepo.findOne({ 
+      where: { id, company_id: companyId, status: Not(-2) }, 
+      relations: ['schoolYear'] 
+    });
     if (!period) throw new NotFoundException('School year period not found');
     return period;
   }
 
 
-  async update(id: number, dto: UpdateSchoolYearPeriodDto) {
-    const period = await this.findOne(id);
+  async update(id: number, dto: UpdateSchoolYearPeriodDto, companyId: number) {
+    const period = await this.findOne(id, companyId);
 
     if (dto.schoolYearId) {
-      const parent = await this.schoolYearRepo.findOne({ where: { id: dto.schoolYearId, status: Not(-2) } });
+      // Verify school year exists and belongs to the same company
+      const parent = await this.schoolYearRepo.findOne({ 
+        where: { id: dto.schoolYearId, status: Not(-2) },
+        relations: ['company']
+      });
       if (!parent) throw new NotFoundException('Parent school year not found');
+      if (parent.company?.id !== companyId) {
+        throw new BadRequestException('School year does not belong to your company');
+      }
+      period.school_year_id = dto.schoolYearId;
       period.schoolYear = parent;
     }
 
@@ -114,12 +142,18 @@ export class SchoolYearPeriodsService {
     if (dto.start_date !== undefined) period.start_date = start;
     if (dto.end_date !== undefined) period.end_date = end;
     if (dto.status !== undefined) period.status = this.mapStatus(dto.status);
+    if (dto.lifecycle_status !== undefined) period.lifecycle_status = dto.lifecycle_status;
+
+    // Prevent changing company_id - always use authenticated user's company
+    period.company_id = companyId;
+    period.company = { id: companyId } as any;
 
     return this.periodRepo.save(period);
   }
 
-  async remove(id: number) {
-    const period = await this.findOne(id);
+  async remove(id: number, companyId: number) {
+    const period = await this.findOne(id, companyId);
     return this.periodRepo.remove(period);
-  }  }
+  }
+}
 

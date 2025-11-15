@@ -17,12 +17,6 @@ export class LevelPricingQueryDto extends PaginationDto {
   @IsNumber()
   level_id?: number;
 
-  @ApiPropertyOptional({ description: 'Filter by company identifier', example: 3 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  company_id?: number;
-
   @ApiPropertyOptional({ description: 'Search keyword applied to title', example: 'monthly' })
   @IsOptional()
   @IsString()

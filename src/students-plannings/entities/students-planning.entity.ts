@@ -5,6 +5,7 @@ import { ClassEntity } from '../../class/entities/class.entity';
 import { ClassRoom } from '../../class-rooms/entities/class-room.entity';
 import { Company } from '../../company/entities/company.entity';
 import { PlanningSessionType } from '../../planning-session-types/entities/planning-session-type.entity';
+import { SchoolYear } from '../../school-years/entities/school-year.entity';
 
 @Entity('planning_students')
 export class StudentsPlanning {
@@ -65,8 +66,15 @@ export class StudentsPlanning {
   @JoinColumn({ name: 'company_id' })
   company?: Company;
 
-  @Column({ length: 50, default: 'planned' })
-  status: string;
+  @Column({ nullable: true })
+  school_year_id?: number;
+
+  @ManyToOne(() => SchoolYear, { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'school_year_id' })
+  schoolYear?: SchoolYear;
+
+  @Column({ type: 'int', default: 2, name: 'statut' })
+  status: number;
 
   @CreateDateColumn()
   created_at: Date;

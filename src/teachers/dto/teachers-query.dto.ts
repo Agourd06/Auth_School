@@ -10,11 +10,6 @@ export class TeachersQueryDto extends PaginationDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  company_id?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
   class_room_id?: number;
 
   @IsOptional()
@@ -24,6 +19,4 @@ export class TeachersQueryDto extends PaginationDto {
   @Max(2)
   status?: number;
 }
-
-
 

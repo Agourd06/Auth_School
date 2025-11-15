@@ -19,6 +19,14 @@ export class AppController {
       user: {
         id: req.user.id,
         email: req.user.email,
+        username: req.user.username,
+        role: req.user.role,
+        company_id: req.user.company_id,
+        company: req.user.company ? {
+          id: req.user.company.id,
+          name: req.user.company.name,
+          email: req.user.company.email,
+        } : null,
       },
     };
   }

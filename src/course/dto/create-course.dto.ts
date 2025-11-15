@@ -28,7 +28,7 @@ export class CreateCourseDto {
   @Max(2)
   status?: number;
 
-  @ApiPropertyOptional({ description: 'Owning company identifier', example: 4 })
+  @ApiPropertyOptional({ description: 'Owning company identifier (automatically set from authenticated user)', example: 4 })
   @IsOptional()
   @IsNumber()
   company_id?: number;

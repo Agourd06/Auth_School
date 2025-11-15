@@ -24,50 +24,42 @@ export class StudentattestationService {
     private readonly companyRepository: Repository<Company>,
   ) {}
 
-  async create(createStudentAttestationDto: CreateStudentAttestationDto): Promise<StudentAttestation> {
-    // Validate student exists and is not deleted
+  async create(createStudentAttestationDto: CreateStudentAttestationDto, companyId: number): Promise<StudentAttestation> {
+    // Validate student exists, is not deleted, and belongs to the same company
     const student = await this.studentRepository.findOne({
-      where: { id: createStudentAttestationDto.Idstudent, status: Not(-2) },
+      where: { id: createStudentAttestationDto.Idstudent, company_id: companyId, status: Not(-2) },
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID ${createStudentAttestationDto.Idstudent} not found`);
+      throw new NotFoundException(`Student with ID ${createStudentAttestationDto.Idstudent} not found or does not belong to your company`);
     }
 
-    // Validate attestation exists and is not deleted
+    // Validate attestation exists, is not deleted, and belongs to the same company
     const attestation = await this.attestationRepository.findOne({
-      where: { id: createStudentAttestationDto.Idattestation, statut: Not(-2) },
+      where: { id: createStudentAttestationDto.Idattestation, companyid: companyId, statut: Not(-2) },
     });
     if (!attestation) {
-      throw new NotFoundException(`Attestation with ID ${createStudentAttestationDto.Idattestation} not found`);
-    }
-
-    // Validate company exists and is not deleted
-    if (createStudentAttestationDto.companyid) {
-      const company = await this.companyRepository.findOne({
-        where: { id: createStudentAttestationDto.companyid, status: Not(-2) },
-      });
-      if (!company) {
-        throw new NotFoundException(`Company with ID ${createStudentAttestationDto.companyid} not found`);
-      }
+      throw new NotFoundException(`Attestation with ID ${createStudentAttestationDto.Idattestation} not found or does not belong to your company`);
     }
 
     // Validate dateask is before datedelivery
     this.validateDateRange(createStudentAttestationDto.dateask, createStudentAttestationDto.datedelivery);
 
+    // Always set companyid from authenticated user
     const studentAttestation = this.studentAttestationRepository.create({
       Idstudent: createStudentAttestationDto.Idstudent,
       Idattestation: createStudentAttestationDto.Idattestation,
       dateask: createStudentAttestationDto.dateask,
       datedelivery: createStudentAttestationDto.datedelivery,
       Status: createStudentAttestationDto.Status ?? 1,
-      companyid: createStudentAttestationDto.companyid,
+      companyid: companyId,
     });
 
-    return await this.studentAttestationRepository.save(studentAttestation);
+    const saved = await this.studentAttestationRepository.save(studentAttestation);
+    return this.findOne(saved.id, companyId);
   }
 
-  async findAll(queryDto: StudentAttestationQueryDto): Promise<PaginatedResponseDto<StudentAttestation>> {
-    const { page = 1, limit = 10, search, Status, Idstudent, Idattestation, companyid } = queryDto;
+  async findAll(queryDto: StudentAttestationQueryDto, companyId: number): Promise<PaginatedResponseDto<StudentAttestation>> {
+    const { page = 1, limit = 10, search, Status, Idstudent, Idattestation } = queryDto;
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.studentAttestationRepository
@@ -81,6 +73,8 @@ export class StudentattestationService {
 
     // Exclude soft-deleted records (Status = -2)
     queryBuilder.andWhere('studentAttestation.Status <> :deletedStatus', { deletedStatus: -2 });
+    // Always filter by companyid from authenticated user
+    queryBuilder.andWhere('studentAttestation.companyid = :companyid', { companyid: companyId });
 
     // Add search filter for student name or attestation title
     if (search) {
@@ -105,19 +99,14 @@ export class StudentattestationService {
       queryBuilder.andWhere('studentAttestation.Idattestation = :Idattestation', { Idattestation });
     }
 
-    // Add company filter
-    if (companyid !== undefined) {
-      queryBuilder.andWhere('studentAttestation.companyid = :companyid', { companyid });
-    }
-
     const [studentAttestations, total] = await queryBuilder.getManyAndCount();
 
     return PaginationService.createResponse(studentAttestations, page, limit, total);
   }
 
-  async findOne(id: number): Promise<StudentAttestation> {
+  async findOne(id: number, companyId: number): Promise<StudentAttestation> {
     const studentAttestation = await this.studentAttestationRepository.findOne({
-      where: { id, Status: Not(-2) },
+      where: { id, companyid: companyId, Status: Not(-2) },
       relations: ['student', 'attestation', 'company'],
     });
 
@@ -128,36 +117,26 @@ export class StudentattestationService {
     return studentAttestation;
   }
 
-  async update(id: number, updateStudentAttestationDto: UpdateStudentAttestationDto): Promise<StudentAttestation> {
-    const studentAttestation = await this.findOne(id);
+  async update(id: number, updateStudentAttestationDto: UpdateStudentAttestationDto, companyId: number): Promise<StudentAttestation> {
+    const studentAttestation = await this.findOne(id, companyId);
 
     // Validate student if provided
     if (updateStudentAttestationDto.Idstudent) {
       const student = await this.studentRepository.findOne({
-        where: { id: updateStudentAttestationDto.Idstudent, status: Not(-2) },
+        where: { id: updateStudentAttestationDto.Idstudent, company_id: companyId, status: Not(-2) },
       });
       if (!student) {
-        throw new NotFoundException(`Student with ID ${updateStudentAttestationDto.Idstudent} not found`);
+        throw new NotFoundException(`Student with ID ${updateStudentAttestationDto.Idstudent} not found or does not belong to your company`);
       }
     }
 
     // Validate attestation if provided
     if (updateStudentAttestationDto.Idattestation) {
       const attestation = await this.attestationRepository.findOne({
-        where: { id: updateStudentAttestationDto.Idattestation, statut: Not(-2) },
+        where: { id: updateStudentAttestationDto.Idattestation, companyid: companyId, statut: Not(-2) },
       });
       if (!attestation) {
-        throw new NotFoundException(`Attestation with ID ${updateStudentAttestationDto.Idattestation} not found`);
-      }
-    }
-
-    // Validate company if provided
-    if (updateStudentAttestationDto.companyid) {
-      const company = await this.companyRepository.findOne({
-        where: { id: updateStudentAttestationDto.companyid, status: Not(-2) },
-      });
-      if (!company) {
-        throw new NotFoundException(`Company with ID ${updateStudentAttestationDto.companyid} not found`);
+        throw new NotFoundException(`Attestation with ID ${updateStudentAttestationDto.Idattestation} not found or does not belong to your company`);
       }
     }
 
@@ -166,14 +145,21 @@ export class StudentattestationService {
     const finalDateDelivery = updateStudentAttestationDto.datedelivery ?? studentAttestation.datedelivery;
     this.validateDateRange(finalDateAsk, finalDateDelivery);
 
-    Object.assign(studentAttestation, updateStudentAttestationDto);
+    // Prevent changing companyid - always use authenticated user's company
+    const dtoWithoutCompany = { ...updateStudentAttestationDto };
+    delete (dtoWithoutCompany as any).companyid;
+
+    Object.assign(studentAttestation, dtoWithoutCompany);
+    // Ensure companyid remains from authenticated user
+    studentAttestation.companyid = companyId;
+    studentAttestation.company = { id: companyId } as any;
     const savedStudentAttestation = await this.studentAttestationRepository.save(studentAttestation);
 
-    return this.findOne(savedStudentAttestation.id);
+    return this.findOne(savedStudentAttestation.id, companyId);
   }
 
-  async remove(id: number): Promise<void> {
-    const existing = await this.findOne(id);
+  async remove(id: number, companyId: number): Promise<void> {
+    const existing = await this.findOne(id, companyId);
     // Soft delete: set Status to -2
     existing.Status = -2;
     await this.studentAttestationRepository.save(existing);

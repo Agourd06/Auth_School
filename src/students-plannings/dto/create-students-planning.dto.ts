@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsNotEmpty, IsNumber, IsOptional, IsString, Matches, MinLength, MaxLength, IsIn } from 'class-validator';
+import { IsDateString, IsNotEmpty, IsNumber, IsOptional, IsString, Matches, MinLength, MaxLength, IsIn, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -51,15 +51,23 @@ export class CreateStudentsPlanningDto {
   @Matches(TIME_REGEX)
   hour_end: string;
 
-  @ApiPropertyOptional({ description: 'Owning company identifier', example: 2 })
+  @ApiPropertyOptional({ description: 'Owning company identifier (automatically set from authenticated user)', example: 2 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   company_id?: number;
 
-  @ApiPropertyOptional({ description: 'Planning status', example: 'planned', default: 'planned' })
+  @ApiPropertyOptional({ description: 'School year identifier', example: 7 })
   @IsOptional()
-  @IsString()
-  @IsIn(['planned', 'completed', 'cancelled', 'postponed'], { message: 'status must be planned, completed, cancelled or postponed' })
-  status?: string;
+  @Type(() => Number)
+  @IsNumber()
+  school_year_id?: number;
+
+  @ApiPropertyOptional({ description: 'Status indicator (-2 to 2)', example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-2)
+  @Max(2)
+  status?: number;
 }

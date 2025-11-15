@@ -16,8 +16,9 @@ export class SchoolYearsService {
     private readonly companyRepo: Repository<Company>,
   ) {}
 
-  async create(dto: CreateSchoolYearDto) {
-    const company = await this.companyRepo.findOne({ where: { id: dto.companyId, status: Not(-2) } });
+  async create(dto: CreateSchoolYearDto, companyId: number) {
+    // Always use company_id from authenticated user, ignore dto.companyId
+    const company = await this.companyRepo.findOne({ where: { id: companyId, status: Not(-2) } });
     if (!company) throw new NotFoundException('Company not found');
 
     const start = new Date(dto.start_date);
@@ -33,13 +34,14 @@ export class SchoolYearsService {
       title: dto.title,
       start_date: dto.start_date,
       end_date: dto.end_date,
-      status: dto.status ,
+      status: dto.status,
+      lifecycle_status: dto.lifecycle_status || 'planned',
       company,
     });
     return this.schoolYearRepo.save(schoolYear);
   }
 
-  async findAll(query?: SchoolYearQueryDto) {
+  async findAll(query: SchoolYearQueryDto | undefined, companyId: number) {
     const q = query ?? ({} as SchoolYearQueryDto);
     const page = Math.max(1, q.page || 1);
     const limit = Math.min(100, q.limit || 10);
@@ -49,6 +51,8 @@ export class SchoolYearsService {
       .leftJoinAndSelect('sy.company', 'company');
 
     qb.andWhere('sy.status <> :deletedStatus', { deletedStatus: -2 });
+    // Always filter by company_id from authenticated user
+    qb.andWhere('company.id = :companyId', { companyId });
 
     if (q.title) {
       qb.andWhere('sy.title LIKE :title', { title: `%${q.title}%` });
@@ -56,6 +60,10 @@ export class SchoolYearsService {
 
     if (typeof q.status === 'number') {
       qb.andWhere('sy.status = :status', { status: q.status });
+    }
+
+    if (q.lifecycle_status) {
+      qb.andWhere('sy.lifecycle_status = :lifecycleStatus', { lifecycleStatus: q.lifecycle_status });
     }
 
     qb.orderBy('sy.id', 'DESC')
@@ -74,20 +82,35 @@ export class SchoolYearsService {
     };
   }
 
-  async findOne(id: number) {
-    const schoolYear = await this.schoolYearRepo.findOne({ where: { id, status: Not(-2) }, relations: ['company'] });
+  async findOne(id: number, companyId: number) {
+    const schoolYear = await this.schoolYearRepo.findOne({ 
+      where: { id, status: Not(-2) }, 
+      relations: ['company'] 
+    });
     if (!schoolYear) throw new NotFoundException('School year not found');
+    // Verify school year belongs to the authenticated user's company
+    if (schoolYear.company?.id !== companyId) {
+      throw new NotFoundException('School year not found');
+    }
     return schoolYear;
   }
 
-  async update(id: number, dto: UpdateSchoolYearDto) {
-    const schoolYear = await this.findOne(id);
-    Object.assign(schoolYear, dto);
+  async update(id: number, dto: UpdateSchoolYearDto, companyId: number) {
+    const schoolYear = await this.findOne(id, companyId);
+    
+    // Prevent changing company - always use authenticated user's company
+    const dtoWithoutCompany = { ...dto };
+    delete (dtoWithoutCompany as any).companyId;
+    
+    Object.assign(schoolYear, dtoWithoutCompany);
+    // Ensure company remains from authenticated user
+    schoolYear.company = { id: companyId } as any;
+    
     return this.schoolYearRepo.save(schoolYear);
   }
 
-  async remove(id: number) {
-    const schoolYear = await this.findOne(id);
+  async remove(id: number, companyId: number) {
+    const schoolYear = await this.findOne(id, companyId);
     return this.schoolYearRepo.remove(schoolYear);
   }
 }

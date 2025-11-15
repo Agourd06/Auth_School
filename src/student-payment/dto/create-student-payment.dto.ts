@@ -51,7 +51,7 @@ export class CreateStudentPaymentDto {
   @MaxLength(100)
   reference?: string;
 
-  @ApiPropertyOptional({ description: 'Owning company identifier', example: 4 })
+  @ApiPropertyOptional({ description: 'Owning company identifier (automatically set from authenticated user)', example: 4 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

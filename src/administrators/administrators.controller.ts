@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseInterceptors, UploadedFile, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { ApiBearerAuth, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AdministratorsService } from './administrators.service';
 import { CreateAdministratorDto } from './dto/create-administrator.dto';
@@ -8,6 +8,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Administrators')
 @ApiBearerAuth()
@@ -16,6 +17,7 @@ export class AdministratorsController {
   constructor(private readonly administratorsService: AdministratorsService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Administrator created successfully.' })
   @UseInterceptors(
@@ -42,7 +44,7 @@ export class AdministratorsController {
       limits: { fileSize: 2 * 1024 * 1024 },
     }),
   )
-  create(@UploadedFile() file, @Body() createAdministratorDto: CreateAdministratorDto) {
+  create(@Request() req, @UploadedFile() file, @Body() createAdministratorDto: CreateAdministratorDto) {
     if (file) {
       const relative = path.posix.join('uploads', 'administrators', path.basename(file.path));
       createAdministratorDto.picture = `/${relative.replace(/\\/g, '/')}`;
@@ -52,22 +54,37 @@ export class AdministratorsController {
         delete (createAdministratorDto as any).picture;
       }
     }
-    return this.administratorsService.create(createAdministratorDto);
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.administratorsService.create(createAdministratorDto, companyId);
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'List administrators based on the provided filters.' })
-  findAll(@Query() query: AdministratorsQueryDto) {
-    return this.administratorsService.findAll(query);
+  findAll(@Request() req, @Query() query: AdministratorsQueryDto) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.administratorsService.findAll(query, companyId);
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'Retrieve a single administrator.' })
-  findOne(@Param('id') id: string) {
-    return this.administratorsService.findOne(+id);
+  findOne(@Request() req, @Param('id') id: string) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.administratorsService.findOne(+id, companyId);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 200, description: 'Update administrator details.' })
   @UseInterceptors(
@@ -95,6 +112,7 @@ export class AdministratorsController {
     }),
   )
   update(
+    @Request() req,
     @Param('id') id: string,
     @UploadedFile() file,
     @Body() updateAdministratorDto: UpdateAdministratorDto,
@@ -108,12 +126,21 @@ export class AdministratorsController {
         delete (updateAdministratorDto as any).picture;
       }
     }
-    return this.administratorsService.update(+id, updateAdministratorDto);
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.administratorsService.update(+id, updateAdministratorDto, companyId);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'Remove an administrator record.' })
-  remove(@Param('id') id: string) {
-    return this.administratorsService.remove(+id);
+  remove(@Request() req, @Param('id') id: string) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.administratorsService.remove(+id, companyId);
   }
 }

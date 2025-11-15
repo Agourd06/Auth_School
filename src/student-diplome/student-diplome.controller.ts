@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFiles, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFiles, Query, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { ApiBearerAuth, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { StudentDiplomeService } from './student-diplome.service';
 import { CreateStudentDiplomeDto } from './dto/create-student-diplome.dto';
@@ -8,6 +8,7 @@ import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
 import { StudentDiplomesQueryDto } from './dto/student-diplomes-query.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('StudentDiplome')
 @ApiBearerAuth()
@@ -16,6 +17,7 @@ export class StudentDiplomeController {
   constructor(private readonly studentDiplomeService: StudentDiplomeService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'StudentDiplome created successfully.' })
   @UseInterceptors(
@@ -43,7 +45,11 @@ export class StudentDiplomeController {
       limits: { fileSize: 2 * 1024 * 1024 },
     }),
   )
-  create(@UploadedFiles() files: { diplome_picture_1?: Express.Multer.File[]; diplome_picture_2?: Express.Multer.File[]; }, @Body() createStudentDiplomeDto: CreateStudentDiplomeDto) {
+  create(@Request() req, @UploadedFiles() files: { diplome_picture_1?: Express.Multer.File[]; diplome_picture_2?: Express.Multer.File[]; }, @Body() createStudentDiplomeDto: CreateStudentDiplomeDto) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
     const f1 = files?.diplome_picture_1?.[0];
     const f2 = files?.diplome_picture_2?.[0];
     if (f1) {
@@ -61,22 +67,33 @@ export class StudentDiplomeController {
         delete (createStudentDiplomeDto as any)[k];
       }
     });
-    return this.studentDiplomeService.create(createStudentDiplomeDto);
+    return this.studentDiplomeService.create(createStudentDiplomeDto, companyId);
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'Retrieve student diplomas with pagination metadata.' })
-  findAll(@Query() queryDto: StudentDiplomesQueryDto) {
-    return this.studentDiplomeService.findAll(queryDto);
+  findAll(@Request() req, @Query() queryDto: StudentDiplomesQueryDto) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.studentDiplomeService.findAll(queryDto, companyId);
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'Retrieve a student diploma by identifier.' })
-  findOne(@Param('id') id: string) {
-    return this.studentDiplomeService.findOne(+id);
+  findOne(@Request() req, @Param('id') id: string) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.studentDiplomeService.findOne(+id, companyId);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 200, description: 'Update a student diploma.' })
   @UseInterceptors(
@@ -105,10 +122,15 @@ export class StudentDiplomeController {
     }),
   )
   update(
+    @Request() req,
     @Param('id') id: string,
     @UploadedFiles() files: { diplome_picture_1?: Express.Multer.File[]; diplome_picture_2?: Express.Multer.File[]; },
     @Body() updateStudentDiplomeDto: UpdateStudentDiplomeDto,
   ) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
     const f1 = files?.diplome_picture_1?.[0];
     const f2 = files?.diplome_picture_2?.[0];
     if (f1) {
@@ -125,12 +147,17 @@ export class StudentDiplomeController {
         delete (updateStudentDiplomeDto as any)[k];
       }
     });
-    return this.studentDiplomeService.update(+id, updateStudentDiplomeDto);
+    return this.studentDiplomeService.update(+id, updateStudentDiplomeDto, companyId);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'Soft delete a student diploma (sets status to -2).' })
-  remove(@Param('id') id: string) {
-    return this.studentDiplomeService.remove(+id);
+  remove(@Request() req, @Param('id') id: string) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.studentDiplomeService.remove(+id, companyId);
   }
 }

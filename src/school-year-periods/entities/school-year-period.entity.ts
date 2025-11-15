@@ -19,12 +19,18 @@ export class SchoolYearPeriod {
   @Column({ type: 'int', default: 2, name: 'statut' })
   status: number;
 
+  @Column({ type: 'enum', enum: ['planned', 'ongoing', 'completed'], default: 'planned', name: 'lifecycle_status' })
+  lifecycle_status: 'planned' | 'ongoing' | 'completed';
+
   @Column({ nullable: true })
   company_id: number;
 
   @ManyToOne(() => Company, company => company.schoolYears, { nullable: true })
   @JoinColumn({ name: 'company_id' })
   company: Company;
+
+  @Column({ name: 'school_year_id', nullable: false })
+  school_year_id: number;
 
   @ManyToOne(() => SchoolYear, (schoolYear) => schoolYear.periods, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'school_year_id' })

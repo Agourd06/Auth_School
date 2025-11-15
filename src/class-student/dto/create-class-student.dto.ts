@@ -13,7 +13,7 @@ export class CreateClassStudentDto {
   @IsNumber()
   student_id: number;
 
-  @ApiPropertyOptional({ description: 'Owning company identifier', example: 3 })
+  @ApiPropertyOptional({ description: 'Owning company identifier (automatically set from authenticated user)', example: 3 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

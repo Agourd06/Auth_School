@@ -32,12 +32,6 @@ export class StudentDiplomesQueryDto extends PaginationDto {
   @Min(-2)
   @Max(2)
   status?: number;
-
-  @ApiPropertyOptional({ description: 'Filter by company ID', example: 4 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  company_id?: number;
 }
 
 

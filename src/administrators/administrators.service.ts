@@ -15,17 +15,22 @@ export class AdministratorsService {
     private administratorRepository: Repository<Administrator>,
   ) {}
 
-  async create(createAdministratorDto: CreateAdministratorDto): Promise<Administrator> {
+  async create(createAdministratorDto: CreateAdministratorDto, companyId: number): Promise<Administrator> {
     try {
-      const created = this.administratorRepository.create(createAdministratorDto);
+      // Always set company_id from authenticated user
+      const dtoWithCompany = {
+        ...createAdministratorDto,
+        company_id: companyId,
+      };
+      const created = this.administratorRepository.create(dtoWithCompany);
       const saved = await this.administratorRepository.save(created);
-      return this.findOne(saved.id);
+      return this.findOne(saved.id, companyId);
     } catch (error) {
       throw new BadRequestException('Failed to create administrator');
     }
   }
 
-  async findAll(query: AdministratorsQueryDto): Promise<PaginatedResponseDto<Administrator>> {
+  async findAll(query: AdministratorsQueryDto, companyId: number): Promise<PaginatedResponseDto<Administrator>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const qb = this.administratorRepository.createQueryBuilder('a')
@@ -33,6 +38,8 @@ export class AdministratorsService {
       .leftJoinAndSelect('a.company', 'company');
 
     qb.andWhere('a.status <> :deletedStatus', { deletedStatus: -2 });
+    // Always filter by company_id from authenticated user
+    qb.andWhere('a.company_id = :company_id', { company_id: companyId });
 
     if (query.search) {
       qb.andWhere(
@@ -41,7 +48,6 @@ export class AdministratorsService {
       );
     }
 
-    if (query.company_id) qb.andWhere('a.company_id = :company_id', { company_id: query.company_id });
     if (query.class_room_id) qb.andWhere('a.class_room_id = :class_room_id', { class_room_id: query.class_room_id });
     if (query.status !== undefined) qb.andWhere('a.status = :status', { status: query.status });
 
@@ -51,20 +57,28 @@ export class AdministratorsService {
     return PaginationService.createResponse(data, page, limit, total);
   }
 
-  async findOne(id: number): Promise<Administrator> {
+  async findOne(id: number, companyId: number): Promise<Administrator> {
     const found = await this.administratorRepository.findOne({
-      where: { id, status: Not(-2) },
+      where: { id, company_id: companyId, status: Not(-2) },
       relations: ['classRoom', 'company'],
     });
     if (!found) throw new NotFoundException('Administrator not found');
     return found;
   }
 
-  async update(id: number, updateAdministratorDto: UpdateAdministratorDto): Promise<Administrator> {
-    const existing = await this.findOne(id);
-    const merged = this.administratorRepository.merge(existing, updateAdministratorDto);
+  async update(id: number, updateAdministratorDto: UpdateAdministratorDto, companyId: number): Promise<Administrator> {
+    const existing = await this.findOne(id, companyId);
+    
+    // Prevent changing company_id - always use authenticated user's company
+    const dtoWithoutCompany = { ...updateAdministratorDto };
+    delete (dtoWithoutCompany as any).company_id;
+    
+    const merged = this.administratorRepository.merge(existing, dtoWithoutCompany);
+    // Ensure company_id remains from authenticated user
+    merged.company_id = companyId;
+    merged.company = { id: companyId } as any;
+    
     const relationMappings = {
-      company_id: 'company',
       class_room_id: 'classRoom',
     } as const;
 
@@ -77,11 +91,11 @@ export class AdministratorsService {
     });
 
     await this.administratorRepository.save(merged);
-    return this.findOne(id);
+    return this.findOne(id, companyId);
   }
 
-  async remove(id: number): Promise<void> {
-    const existing = await this.findOne(id);
+  async remove(id: number, companyId: number): Promise<void> {
+    const existing = await this.findOne(id, companyId);
     await this.administratorRepository.remove(existing);
   }
 }

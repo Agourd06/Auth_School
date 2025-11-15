@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not } from 'typeorm';
 import { CreateAttestationDto } from './dto/create-attestation.dto';
@@ -18,28 +18,27 @@ export class AttestationService {
     private readonly companyRepository: Repository<Company>,
   ) {}
 
-  async create(createAttestationDto: CreateAttestationDto): Promise<Attestation> {
+  async create(createAttestationDto: CreateAttestationDto, companyId: number): Promise<Attestation> {
     // Validate company exists and is not deleted
-    if (createAttestationDto.companyid) {
-      const company = await this.companyRepository.findOne({
-        where: { id: createAttestationDto.companyid, status: Not(-2) },
-      });
-      if (!company) {
-        throw new NotFoundException(`Company with ID ${createAttestationDto.companyid} not found`);
-      }
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId, status: Not(-2) },
+    });
+    if (!company) {
+      throw new NotFoundException(`Company with ID ${companyId} not found`);
     }
 
+    // Always set companyid from authenticated user
     const attestation = this.attestationRepository.create({
       title: createAttestationDto.title,
       description: createAttestationDto.description,
       statut: createAttestationDto.statut ?? 1,
-      companyid: createAttestationDto.companyid,
+      companyid: companyId,
     });
 
     return await this.attestationRepository.save(attestation);
   }
 
-  async findAll(queryDto: AttestationQueryDto): Promise<PaginatedResponseDto<Attestation>> {
+  async findAll(queryDto: AttestationQueryDto, companyId: number): Promise<PaginatedResponseDto<Attestation>> {
     const { page = 1, limit = 10, search, statut } = queryDto;
     const skip = (page - 1) * limit;
 
@@ -52,6 +51,8 @@ export class AttestationService {
 
     // Exclude soft-deleted records (statut = -2)
     queryBuilder.andWhere('attestation.statut <> :deletedStatus', { deletedStatus: -2 });
+    // Always filter by companyid from authenticated user
+    queryBuilder.andWhere('attestation.companyid = :companyId', { companyId });
 
     // Add search filter for title or description
     if (search) {
@@ -71,9 +72,9 @@ export class AttestationService {
     return PaginationService.createResponse(attestations, page, limit, total);
   }
 
-  async findOne(id: number): Promise<Attestation> {
+  async findOne(id: number, companyId: number): Promise<Attestation> {
     const attestation = await this.attestationRepository.findOne({
-      where: { id, statut: Not(-2) },
+      where: { id, companyid: companyId, statut: Not(-2) },
       relations: ['company'],
     });
 
@@ -84,27 +85,25 @@ export class AttestationService {
     return attestation;
   }
 
-  async update(id: number, updateAttestationDto: UpdateAttestationDto): Promise<Attestation> {
-    const attestation = await this.findOne(id);
+  async update(id: number, updateAttestationDto: UpdateAttestationDto, companyId: number): Promise<Attestation> {
+    const attestation = await this.findOne(id, companyId);
 
-    // Validate company if provided
-    if (updateAttestationDto.companyid) {
-      const company = await this.companyRepository.findOne({
-        where: { id: updateAttestationDto.companyid, status: Not(-2) },
-      });
-      if (!company) {
-        throw new NotFoundException(`Company with ID ${updateAttestationDto.companyid} not found`);
-      }
-    }
+    // Prevent changing companyid - always use authenticated user's company
+    const dtoWithoutCompany = { ...updateAttestationDto };
+    delete (dtoWithoutCompany as any).companyid;
 
-    Object.assign(attestation, updateAttestationDto);
+    Object.assign(attestation, dtoWithoutCompany);
+    // Ensure companyid remains from authenticated user
+    attestation.companyid = companyId;
+    attestation.company = { id: companyId } as any;
+
     const savedAttestation = await this.attestationRepository.save(attestation);
 
-    return this.findOne(savedAttestation.id);
+    return this.findOne(savedAttestation.id, companyId);
   }
 
-  async remove(id: number): Promise<void> {
-    const existing = await this.findOne(id);
+  async remove(id: number, companyId: number): Promise<void> {
+    const existing = await this.findOne(id, companyId);
     // Soft delete: set statut to -2
     existing.statut = -2;
     await this.attestationRepository.save(existing);

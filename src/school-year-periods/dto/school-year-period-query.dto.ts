@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsInt, Min, Max } from 'class-validator';
+import { IsOptional, IsString, IsInt, Min, Max, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class SchoolYearPeriodQueryDto {
@@ -25,4 +25,8 @@ export class SchoolYearPeriodQueryDto {
   @Min(-2)
   @Max(2)
   status?: number;
+
+  @IsOptional()
+  @IsEnum(['planned', 'ongoing', 'completed'])
+  lifecycle_status?: 'planned' | 'ongoing' | 'completed';
 }

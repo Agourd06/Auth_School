@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDateString, IsInt, IsPositive, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsInt, IsPositive, IsNumber, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateSchoolYearPeriodDto {
@@ -20,12 +20,21 @@ export class CreateSchoolYearPeriodDto {
   @IsInt()
   status?: number;
 
+  @ApiPropertyOptional({ 
+    description: 'Lifecycle status: planned, ongoing, or completed', 
+    example: 'planned',
+    enum: ['planned', 'ongoing', 'completed']
+  })
+  @IsOptional()
+  @IsEnum(['planned', 'ongoing', 'completed'])
+  lifecycle_status?: 'planned' | 'ongoing' | 'completed';
+
   @ApiProperty({ description: 'Parent school year identifier', example: 7 })
   @IsInt()
   @IsPositive()
   schoolYearId: number;
 
-  @ApiPropertyOptional({ description: 'Owning company identifier', example: 4 })
+  @ApiPropertyOptional({ description: 'Owning company identifier (automatically set from authenticated user)', example: 4 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

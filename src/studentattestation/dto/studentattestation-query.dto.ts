@@ -32,12 +32,4 @@ export class StudentAttestationQueryDto extends PaginationDto {
   @Type(() => Number)
   @IsInt()
   Idattestation?: number;
-
-  @ApiPropertyOptional({ description: 'Filter by company ID', example: 4 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  companyid?: number;
 }
-
-

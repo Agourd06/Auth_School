@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
 import { CreateStudentReportDetailDto } from './dto/create-student-report-detail.dto';
@@ -7,30 +7,68 @@ import { StudentReportDetail } from './entities/student-report-detail.entity';
 import { StudentReportDetailQueryDto } from './dto/student-report-detail-query.dto';
 import { PaginatedResponseDto } from '../common/dto/pagination.dto';
 import { PaginationService } from '../common/services/pagination.service';
+import { StudentReport } from '../student-report/entities/student-report.entity';
+import { Teacher } from '../teachers/entities/teacher.entity';
+import { Course } from '../course/entities/course.entity';
 
 @Injectable()
 export class StudentReportDetailService {
   constructor(
     @InjectRepository(StudentReportDetail)
     private readonly repo: Repository<StudentReportDetail>,
+    @InjectRepository(StudentReport)
+    private readonly studentReportRepo: Repository<StudentReport>,
+    @InjectRepository(Teacher)
+    private readonly teacherRepo: Repository<Teacher>,
+    @InjectRepository(Course)
+    private readonly courseRepo: Repository<Course>,
   ) {}
 
-  async create(dto: CreateStudentReportDetailDto): Promise<StudentReportDetail> {
+  async create(dto: CreateStudentReportDetailDto, companyId: number): Promise<StudentReportDetail> {
+    // Verify student report exists and belongs to the same company (through student)
+    const studentReport = await this.studentReportRepo.findOne({
+      where: { id: dto.student_report_id, status: Not(-2) },
+      relations: ['student'],
+    });
+    if (!studentReport) {
+      throw new NotFoundException(`Student report with ID ${dto.student_report_id} not found`);
+    }
+    if (studentReport.student?.company_id !== companyId) {
+      throw new BadRequestException('Student report does not belong to your company');
+    }
+
+    // Verify teacher exists and belongs to the same company
+    const teacher = await this.teacherRepo.findOne({
+      where: { id: dto.teacher_id, company_id: companyId, status: Not(-2) },
+    });
+    if (!teacher) {
+      throw new NotFoundException(`Teacher with ID ${dto.teacher_id} not found or does not belong to your company`);
+    }
+
+    // Verify course exists and belongs to the same company
+    const course = await this.courseRepo.findOne({
+      where: { id: dto.course_id, company_id: companyId, statut: Not(-2) } as any,
+    });
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${dto.course_id} not found or does not belong to your company`);
+    }
+
     const entity = this.repo.create({
       ...dto,
       status: dto.status ?? 2,
     });
     const saved = await this.repo.save(entity);
-    return this.findOne(saved.id);
+    return this.findOne(saved.id, companyId);
   }
 
-  async findAll(query: StudentReportDetailQueryDto): Promise<PaginatedResponseDto<StudentReportDetail>> {
+  async findAll(query: StudentReportDetailQueryDto, companyId: number): Promise<PaginatedResponseDto<StudentReportDetail>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
 
     const qb = this.repo
       .createQueryBuilder('detail')
       .leftJoinAndSelect('detail.studentReport', 'studentReport')
+      .leftJoinAndSelect('studentReport.student', 'student')
       .leftJoinAndSelect('detail.teacher', 'teacher')
       .leftJoinAndSelect('detail.course', 'course')
       .orderBy('detail.created_at', 'DESC')
@@ -38,6 +76,8 @@ export class StudentReportDetailService {
       .take(limit);
 
     qb.andWhere('detail.status <> :deletedStatus', { deletedStatus: -2 });
+    // Always filter by company_id through course relationship (most reliable)
+    qb.andWhere('course.company_id = :company_id', { company_id: companyId });
 
     if (query.status !== undefined) {
       qb.andWhere('detail.status = :status', { status: query.status });
@@ -59,26 +99,65 @@ export class StudentReportDetailService {
     return PaginationService.createResponse(data, page, limit, total);
   }
 
-  async findOne(id: number): Promise<StudentReportDetail> {
+  async findOne(id: number, companyId: number): Promise<StudentReportDetail> {
     const found = await this.repo.findOne({
       where: { id, status: Not(-2) },
-      relations: ['studentReport', 'teacher', 'course'],
+      relations: ['studentReport', 'studentReport.student', 'teacher', 'course'],
     });
     if (!found) {
+      throw new NotFoundException('Student report detail not found');
+    }
+    // Verify course belongs to the authenticated user's company
+    if (found.course?.company_id !== companyId) {
       throw new NotFoundException('Student report detail not found');
     }
     return found;
   }
 
-  async update(id: number, dto: UpdateStudentReportDetailDto): Promise<StudentReportDetail> {
-    const existing = await this.findOne(id);
+  async update(id: number, dto: UpdateStudentReportDetailDto, companyId: number): Promise<StudentReportDetail> {
+    const existing = await this.findOne(id, companyId);
+
+    // If student_report_id is being updated, verify it belongs to the same company
+    if (dto.student_report_id !== undefined) {
+      const studentReport = await this.studentReportRepo.findOne({
+        where: { id: dto.student_report_id, status: Not(-2) },
+        relations: ['student'],
+      });
+      if (!studentReport) {
+        throw new NotFoundException(`Student report with ID ${dto.student_report_id} not found`);
+      }
+      if (studentReport.student?.company_id !== companyId) {
+        throw new BadRequestException('Student report does not belong to your company');
+      }
+    }
+
+    // If teacher_id is being updated, verify it belongs to the same company
+    if (dto.teacher_id !== undefined) {
+      const teacher = await this.teacherRepo.findOne({
+        where: { id: dto.teacher_id, company_id: companyId, status: Not(-2) },
+      });
+      if (!teacher) {
+        throw new NotFoundException(`Teacher with ID ${dto.teacher_id} not found or does not belong to your company`);
+      }
+    }
+
+    // If course_id is being updated, verify it belongs to the same company
+    if (dto.course_id !== undefined) {
+      const course = await this.courseRepo.findOne({
+        where: { id: dto.course_id, company_id: companyId, statut: Not(-2) } as any,
+      });
+      if (!course) {
+        throw new NotFoundException(`Course with ID ${dto.course_id} not found or does not belong to your company`);
+      }
+    }
+
     const merged = this.repo.merge(existing, dto);
     await this.repo.save(merged);
-    return this.findOne(id);
+    return this.findOne(id, companyId);
   }
 
-  async remove(id: number): Promise<void> {
-    const existing = await this.findOne(id);
+  async remove(id: number, companyId: number): Promise<void> {
+    const existing = await this.findOne(id, companyId);
     existing.status = -2;
     await this.repo.save(existing);
   }

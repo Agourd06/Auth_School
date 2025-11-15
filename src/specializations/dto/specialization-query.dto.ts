@@ -15,11 +15,6 @@ export class SpecializationQueryDto extends PaginationDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  company_id?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
   @Min(-2)
   @Max(2)
   status?: number;

@@ -15,21 +15,28 @@ export class ProgramService {
     private repo: Repository<Program>,
   ) {}
 
-  async create(dto: CreateProgramDto): Promise<Program> {
+  async create(dto: CreateProgramDto, companyId: number): Promise<Program> {
     try {
-      const created = this.repo.create(dto);
+      // Always set company_id from authenticated user
+      const dtoWithCompany = {
+        ...dto,
+        company_id: companyId,
+      };
+      const created = this.repo.create(dtoWithCompany);
       const saved = await this.repo.save(created);
-      return this.findOne(saved.id);
+      return this.findOne(saved.id, companyId);
     } catch {
       throw new BadRequestException('Failed to create program');
     }
   }
 
-  async findAll(query: ProgramQueryDto): Promise<PaginatedResponseDto<Program>> {
+  async findAll(query: ProgramQueryDto, companyId: number): Promise<PaginatedResponseDto<Program>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const qb = this.repo.createQueryBuilder('p').leftJoinAndSelect('p.specializations', 's');
     qb.andWhere('p.status <> :deletedStatus', { deletedStatus: -2 });
+    // Always filter by company_id from authenticated user
+    qb.andWhere('p.company_id = :company_id', { company_id: companyId });
     if (query.search) qb.andWhere('p.title LIKE :search', { search: `%${query.search}%` });
     if (query.status !== undefined) qb.andWhere('p.status = :status', { status: query.status });
     qb.skip((page - 1) * limit).take(limit).orderBy('p.id', 'DESC');
@@ -37,21 +44,33 @@ export class ProgramService {
     return PaginationService.createResponse(data, page, limit, total);
   }
 
-  async findOne(id: number): Promise<Program> {
-    const found = await this.repo.findOne({ where: { id, status: Not(-2) }, relations: ['specializations'] });
+  async findOne(id: number, companyId: number): Promise<Program> {
+    const found = await this.repo.findOne({ 
+      where: { id, company_id: companyId, status: Not(-2) }, 
+      relations: ['specializations'] 
+    });
     if (!found) throw new NotFoundException('Program not found');
     return found;
   }
 
-  async update(id: number, dto: UpdateProgramDto): Promise<Program> {
-    const existing = await this.findOne(id);
-    const merged = this.repo.merge(existing, dto);
+  async update(id: number, dto: UpdateProgramDto, companyId: number): Promise<Program> {
+    const existing = await this.findOne(id, companyId);
+    
+    // Prevent changing company_id - always use authenticated user's company
+    const dtoWithoutCompany = { ...dto };
+    delete (dtoWithoutCompany as any).company_id;
+    
+    const merged = this.repo.merge(existing, dtoWithoutCompany);
+    // Ensure company_id remains from authenticated user
+    merged.company_id = companyId;
+    merged.company = { id: companyId } as any;
+    
     await this.repo.save(merged);
-    return this.findOne(id);
+    return this.findOne(id, companyId);
   }
 
-  async remove(id: number): Promise<void> {
-    const existing = await this.findOne(id);
+  async remove(id: number, companyId: number): Promise<void> {
+    const existing = await this.findOne(id, companyId);
     await this.repo.remove(existing);
   }
 }

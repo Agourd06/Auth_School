@@ -15,12 +15,13 @@ export class ClassStudentService {
     private readonly repo: Repository<ClassStudent>,
   ) {}
 
-  private async ensureStudentAssignable(studentId: number, excludeId?: number): Promise<void> {
+  private async ensureStudentAssignable(studentId: number, companyId: number, excludeId?: number): Promise<void> {
     if (!studentId) return;
 
     const qb = this.repo
       .createQueryBuilder('cs')
       .where('cs.student_id = :studentId', { studentId })
+      .andWhere('cs.company_id = :companyId', { companyId })
       .andWhere('cs.status <> :deletedStatus', { deletedStatus: -2 });
 
     if (excludeId) {
@@ -33,20 +34,26 @@ export class ClassStudentService {
     }
   }
 
-  async create(dto: CreateClassStudentDto): Promise<ClassStudent> {
-    await this.ensureStudentAssignable(dto.student_id);
+  async create(dto: CreateClassStudentDto, companyId: number): Promise<ClassStudent> {
+    await this.ensureStudentAssignable(dto.student_id, companyId);
 
-    const entity = this.repo.create(dto);
+    // Always set company_id from authenticated user
+    const dtoWithCompany = {
+      ...dto,
+      company_id: companyId,
+    };
+
+    const entity = this.repo.create(dtoWithCompany);
 
     try {
       const saved = await this.repo.save(entity);
-      return this.findOne(saved.id);
+      return this.findOne(saved.id, companyId);
     } catch (error) {
       throw new BadRequestException('Failed to assign student to class');
     }
   }
 
-  async findAll(query: ClassStudentQueryDto): Promise<PaginatedResponseDto<ClassStudent>> {
+  async findAll(query: ClassStudentQueryDto, companyId: number): Promise<PaginatedResponseDto<ClassStudent>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
 
@@ -54,9 +61,12 @@ export class ClassStudentService {
       .createQueryBuilder('cs')
       .leftJoinAndSelect('cs.student', 'student')
       .leftJoinAndSelect('cs.class', 'class')
+      .leftJoinAndSelect('class.schoolYear', 'schoolYear')
       .leftJoinAndSelect('cs.company', 'company');
 
     qb.andWhere('cs.status <> :deletedStatus', { deletedStatus: -2 });
+    // Always filter by company_id from authenticated user
+    qb.andWhere('cs.company_id = :company_id', { company_id: companyId });
 
     if (query.search) {
       qb.andWhere(
@@ -68,7 +78,7 @@ export class ClassStudentService {
     if (query.status !== undefined) qb.andWhere('cs.status = :status', { status: query.status });
     if (query.class_id) qb.andWhere('cs.class_id = :class_id', { class_id: query.class_id });
     if (query.student_id) qb.andWhere('cs.student_id = :student_id', { student_id: query.student_id });
-    if (query.company_id) qb.andWhere('cs.company_id = :company_id', { company_id: query.company_id });
+    if (query.school_year_id) qb.andWhere('class.school_year_id = :school_year_id', { school_year_id: query.school_year_id });
 
     qb.orderBy('cs.tri', 'ASC').addOrderBy('cs.id', 'DESC');
     qb.skip((page - 1) * limit).take(limit);
@@ -77,10 +87,10 @@ export class ClassStudentService {
     return PaginationService.createResponse(data, page, limit, total);
   }
 
-  async findOne(id: number): Promise<ClassStudent> {
+  async findOne(id: number, companyId: number): Promise<ClassStudent> {
     const found = await this.repo.findOne({
-      where: { id, status: Not(-2) },
-      relations: ['student', 'class', 'company'],
+      where: { id, company_id: companyId, status: Not(-2) },
+      relations: ['student', 'class', 'class.schoolYear', 'company'],
     });
 
     if (!found) {
@@ -90,21 +100,29 @@ export class ClassStudentService {
     return found;
   }
 
-  async update(id: number, dto: UpdateClassStudentDto): Promise<ClassStudent> {
-    const existing = await this.findOne(id);
+  async update(id: number, dto: UpdateClassStudentDto, companyId: number): Promise<ClassStudent> {
+    const existing = await this.findOne(id, companyId);
 
     if (dto.student_id && dto.student_id !== existing.student_id) {
-      await this.ensureStudentAssignable(dto.student_id, id);
+      await this.ensureStudentAssignable(dto.student_id, companyId, id);
     }
 
-    const merged = this.repo.merge(existing, dto);
+    // Prevent changing company_id - always use authenticated user's company
+    const dtoWithoutCompany = { ...dto };
+    delete (dtoWithoutCompany as any).company_id;
+
+    const merged = this.repo.merge(existing, dtoWithoutCompany);
+    // Ensure company_id remains from authenticated user
+    merged.company_id = companyId;
+    merged.company = { id: companyId } as any;
+
     await this.repo.save(merged);
 
-    return this.findOne(id);
+    return this.findOne(id, companyId);
   }
 
-  async remove(id: number): Promise<void> {
-    const existing = await this.findOne(id);
+  async remove(id: number, companyId: number): Promise<void> {
+    const existing = await this.findOne(id, companyId);
     await this.repo.remove(existing);
   }
 }

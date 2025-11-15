@@ -15,21 +15,28 @@ export class ClassRoomsService {
     private classRoomRepository: Repository<ClassRoom>,
   ) {}
 
-  async create(createClassRoomDto: CreateClassRoomDto): Promise<ClassRoom> {
+  async create(createClassRoomDto: CreateClassRoomDto, companyId: number): Promise<ClassRoom> {
     try {
-      const created = this.classRoomRepository.create(createClassRoomDto);
+      // Always set company_id from authenticated user
+      const dtoWithCompany = {
+        ...createClassRoomDto,
+        company_id: companyId,
+      };
+      const created = this.classRoomRepository.create(dtoWithCompany);
       return await this.classRoomRepository.save(created);
     } catch (error) {
       throw new BadRequestException('Failed to create classroom');
     }
   }
 
-  async findAll(query: ClassRoomQueryDto): Promise<PaginatedResponseDto<ClassRoom>> {
+  async findAll(query: ClassRoomQueryDto, companyId: number): Promise<PaginatedResponseDto<ClassRoom>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const qb = this.classRoomRepository.createQueryBuilder('cr');
 
     qb.andWhere('cr.status <> :deletedStatus', { deletedStatus: -2 });
+    // Always filter by company_id from authenticated user
+    qb.andWhere('cr.company_id = :company_id', { company_id: companyId });
 
     if (query.search) {
       qb.andWhere('(cr.code LIKE :search OR cr.title LIKE :search)', {
@@ -37,9 +44,6 @@ export class ClassRoomsService {
       });
     }
 
-    if (query.company_id) {
-      qb.andWhere('cr.company_id = :company_id', { company_id: query.company_id });
-    }
     if (query.status !== undefined) {
       qb.andWhere('cr.status = :status', { status: query.status });
     }
@@ -50,20 +54,31 @@ export class ClassRoomsService {
     return PaginationService.createResponse(data, page, limit, total);
   }
 
-  async findOne(id: number): Promise<ClassRoom> {
-    const found = await this.classRoomRepository.findOne({ where: { id, status: Not(-2) } });
+  async findOne(id: number, companyId: number): Promise<ClassRoom> {
+    const found = await this.classRoomRepository.findOne({ 
+      where: { id, company_id: companyId, status: Not(-2) } 
+    });
     if (!found) throw new NotFoundException('Classroom not found');
     return found;
   }
 
-  async update(id: number, updateClassRoomDto: UpdateClassRoomDto): Promise<ClassRoom> {
-    const existing = await this.findOne(id);
-    const merged = this.classRoomRepository.merge(existing, updateClassRoomDto);
+  async update(id: number, updateClassRoomDto: UpdateClassRoomDto, companyId: number): Promise<ClassRoom> {
+    const existing = await this.findOne(id, companyId);
+    
+    // Prevent changing company_id - always use authenticated user's company
+    const dtoWithoutCompany = { ...updateClassRoomDto };
+    delete (dtoWithoutCompany as any).company_id;
+    
+    const merged = this.classRoomRepository.merge(existing, dtoWithoutCompany);
+    // Ensure company_id remains from authenticated user
+    merged.company_id = companyId;
+    merged.company = { id: companyId } as any;
+    
     return this.classRoomRepository.save(merged);
   }
 
-  async remove(id: number): Promise<void> {
-    const existing = await this.findOne(id);
+  async remove(id: number, companyId: number): Promise<void> {
+    const existing = await this.findOne(id, companyId);
     await this.classRoomRepository.remove(existing);
   }
 }

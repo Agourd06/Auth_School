@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, ParseIntPipe, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { StudentsPlanningsService } from './students-plannings.service';
 import { CreateStudentsPlanningDto } from './dto/create-students-planning.dto';
 import { UpdateStudentsPlanningDto } from './dto/update-students-planning.dto';
 import { StudentsPlanningQueryDto } from './dto/students-planning-query.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Planning Students')
 @ApiBearerAuth()
@@ -12,32 +13,57 @@ export class StudentsPlanningsController {
   constructor(private readonly studentsPlanningsService: StudentsPlanningsService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 201, description: 'Planning entry created successfully.' })
-  create(@Body() createStudentsPlanningDto: CreateStudentsPlanningDto) {
-    return this.studentsPlanningsService.create(createStudentsPlanningDto);
+  create(@Request() req, @Body() createStudentsPlanningDto: CreateStudentsPlanningDto) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.studentsPlanningsService.create(createStudentsPlanningDto, companyId);
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'Retrieve planning entries with pagination metadata.' })
-  findAll(@Query() query: StudentsPlanningQueryDto) {
-    return this.studentsPlanningsService.findAll(query);
+  findAll(@Request() req, @Query() query: StudentsPlanningQueryDto) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.studentsPlanningsService.findAll(query, companyId);
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'Retrieve planning entry by identifier.' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.studentsPlanningsService.findOne(id);
+  findOne(@Request() req, @Param('id', ParseIntPipe) id: number) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.studentsPlanningsService.findOne(id, companyId);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'Update planning entry.' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateStudentsPlanningDto: UpdateStudentsPlanningDto) {
-    return this.studentsPlanningsService.update(id, updateStudentsPlanningDto);
+  update(@Request() req, @Param('id', ParseIntPipe) id: number, @Body() updateStudentsPlanningDto: UpdateStudentsPlanningDto) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.studentsPlanningsService.update(id, updateStudentsPlanningDto, companyId);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'Delete planning entry.' })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.studentsPlanningsService.remove(id);
+  remove(@Request() req, @Param('id', ParseIntPipe) id: number) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.studentsPlanningsService.remove(id, companyId);
   }
 }

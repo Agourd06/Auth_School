@@ -32,7 +32,7 @@ export class CreateLevelPricingDto {
   @IsIn([0, 1])
   every_month?: number;
 
-  @ApiPropertyOptional({ description: 'Owning company identifier', example: 3 })
+  @ApiPropertyOptional({ description: 'Owning company identifier (automatically set from authenticated user)', example: 3 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
