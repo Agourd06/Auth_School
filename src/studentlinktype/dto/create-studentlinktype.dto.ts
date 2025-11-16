@@ -16,11 +16,16 @@ export class CreateStudentLinkTypeDto {
   @Max(2)
   status?: number;
 
+  @ApiPropertyOptional({ description: 'Student identifier', example: 5 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  student_id?: number;
+
   @ApiPropertyOptional({ description: 'Owning company identifier (automatically set from authenticated user)', example: 6 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   company_id?: number;
 }
-
-export class CreateStudentlinktypeDto {}

@@ -45,7 +45,9 @@ export class CreateStudentContactDto {
 
   @ApiProperty({ description: 'Student identifier', example: 1 })
   @Type(() => Number)
+  @IsNotEmpty()
   @IsNumber()
+  @Min(1)
   student_id: number;
 
   @ApiPropertyOptional({ description: 'Relationship type identifier', example: 2 })

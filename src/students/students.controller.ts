@@ -72,6 +72,20 @@ export class StudentsController {
     return this.studentsService.findAll(query, companyId);
   }
 
+  @Get(':id/details')
+  @UseGuards(JwtAuthGuard)
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Retrieve a student with all related data: diplomas, contacts, and link types.' 
+  })
+  findOneWithDetails(@Request() req, @Param('id') id: string) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.studentsService.findOneWithDetails(+id, companyId);
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @ApiResponse({ status: 200, description: 'Retrieve a single student profile.' })

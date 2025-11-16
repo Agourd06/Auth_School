@@ -14,6 +14,7 @@ import { StudentReport } from '../student-report/entities/student-report.entity'
 import { StudentAttestation } from '../studentattestation/entities/studentattestation.entity';
 import { StudentPresence } from '../studentpresence/entities/studentpresence.entity';
 import { StudentContact } from '../student-contact/entities/student-contact.entity';
+import { StudentLinkType } from '../studentlinktype/entities/studentlinktype.entity';
 import { ClassRoom } from '../class-rooms/entities/class-room.entity';
 
 @Injectable()
@@ -23,6 +24,12 @@ export class StudentsService {
     private studentRepository: Repository<Student>,
     @InjectRepository(ClassRoom)
     private classRoomRepository: Repository<ClassRoom>,
+    @InjectRepository(StudentDiplome)
+    private studentDiplomeRepository: Repository<StudentDiplome>,
+    @InjectRepository(StudentContact)
+    private studentContactRepository: Repository<StudentContact>,
+    @InjectRepository(StudentLinkType)
+    private studentLinkTypeRepository: Repository<StudentLinkType>,
     private dataSource: DataSource,
   ) {}
 
@@ -88,6 +95,43 @@ export class StudentsService {
     });
     if (!found) throw new NotFoundException('Student not found');
     return found;
+  }
+
+  async findOneWithDetails(id: number, companyId: number) {
+    // Get student
+    const student = await this.studentRepository.findOne({
+      where: { id, company_id: companyId, status: Not(-2) },
+    });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    // Get student's most recent diploma (one only)
+    const diploma = await this.studentDiplomeRepository.findOne({
+      where: { student_id: id, company_id: companyId, status: Not(-2) },
+      order: { created_at: 'DESC' },
+    });
+
+    // Get student's most recent contact with link type (one only)
+    const contact = await this.studentContactRepository.findOne({
+      where: { student_id: id, company_id: companyId, status: Not(-2) },
+      
+      order: { created_at: 'DESC' },
+    });
+
+    // Get student's most recent link type (one only)
+    const linkType = await this.studentLinkTypeRepository.findOne({
+      where: { student_id: id, company_id: companyId, status: Not(-2) },
+    
+      order: { created_at: 'DESC' },
+    });
+
+    return {
+      student,
+      diploma,
+      contact,
+      linkType,
+    };
   }
 
   async update(id: number, updateStudentDto: UpdateStudentDto, companyId: number): Promise<Student> {

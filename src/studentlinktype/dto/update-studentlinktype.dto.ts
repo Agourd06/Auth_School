@@ -3,4 +3,3 @@ import { CreateStudentLinkTypeDto } from './create-studentlinktype.dto';
 
 export class UpdateStudentLinkTypeDto extends PartialType(CreateStudentLinkTypeDto) {}
 
-
