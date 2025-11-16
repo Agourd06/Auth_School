@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsOptional, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsNumber, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateModuleCourseDto {
@@ -21,5 +21,28 @@ export class CreateModuleCourseDto {
   @IsInt()
   @Min(0)
   tri?: number;
-}
 
+  @ApiPropertyOptional({ description: 'Volume hours', example: 40 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  volume?: number;
+
+  @ApiPropertyOptional({ description: 'Coefficient value', example: 2.5 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  coefficient?: number;
+
+  @ApiPropertyOptional({ 
+    description: 'Status: 0=disabled, 1=active, 2=pending, -1=archived, -2=deleted', 
+    example: 1 
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(-2)
+  @Max(2)
+  status?: number;
+}

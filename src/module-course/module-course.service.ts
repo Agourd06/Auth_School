@@ -17,6 +17,9 @@ export class ModuleCourseService implements OnModuleInit {
   private async ensureSchema(): Promise<void> {
     const queries = [
       'ALTER TABLE module_course ADD COLUMN IF NOT EXISTS tri INT NOT NULL DEFAULT 0',
+      'ALTER TABLE module_course ADD COLUMN IF NOT EXISTS volume INT NULL',
+      'ALTER TABLE module_course ADD COLUMN IF NOT EXISTS coefficient DOUBLE NULL',
+      'ALTER TABLE module_course ADD COLUMN IF NOT EXISTS status INT NOT NULL DEFAULT 1',
       'ALTER TABLE module_course ADD COLUMN IF NOT EXISTS created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP',
       'ALTER TABLE module_course ADD COLUMN IF NOT EXISTS updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
     ];
@@ -39,15 +42,37 @@ export class ModuleCourseService implements OnModuleInit {
   async create(dto: CreateModuleCourseDto) {
     await this.ensureSchema();
 
-    const tri = dto.tri ?? (await this.getNextTriForCourse(dto.course_id));
+    // Check if the relationship already exists (including deleted ones)
+    const [existing] = await this.dataSource.query(
+      'SELECT status FROM module_course WHERE module_id = ? AND course_id = ?',
+      [dto.module_id, dto.course_id],
+    );
 
+    const tri = dto.tri ?? (await this.getNextTriForCourse(dto.course_id));
+    const status = dto.status ?? 1; // Default to active (1)
+
+    if (existing) {
+      // If it exists and is deleted (status -2), restore it by updating status to 1
+      if (Number(existing.status) === -2) {
+        await this.dataSource.query(
+          'UPDATE module_course SET tri = ?, volume = ?, coefficient = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE module_id = ? AND course_id = ?',
+          [tri, dto.volume ?? null, dto.coefficient ?? null, status, dto.module_id, dto.course_id],
+        );
+        return this.findOne(dto.module_id, dto.course_id);
+      } else {
+        // If it exists and is not deleted, throw error
+        throw new BadRequestException('Module already linked to this course');
+      }
+    }
+
+    // If it doesn't exist, insert new record
     const result = await this.dataSource.query(
-      'INSERT IGNORE INTO module_course (module_id, course_id, tri) VALUES (?, ?, ?)',
-      [dto.module_id, dto.course_id, tri],
+      'INSERT INTO module_course (module_id, course_id, tri, volume, coefficient, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [dto.module_id, dto.course_id, tri, dto.volume ?? null, dto.coefficient ?? null, status],
     );
 
     if (result.affectedRows === 0) {
-      throw new BadRequestException('Module already linked to this course');
+      throw new BadRequestException('Failed to create module-course relation');
     }
 
     return this.findOne(dto.module_id, dto.course_id);
@@ -58,7 +83,7 @@ export class ModuleCourseService implements OnModuleInit {
     const limit = query.limit ?? 10;
     const offset = (page - 1) * limit;
 
-    const filters: string[] = [];
+    const filters: string[] = ['mc.status <> -2']; // Exclude deleted items
     const params: any[] = [];
 
     if (query.module_id) {
@@ -69,11 +94,15 @@ export class ModuleCourseService implements OnModuleInit {
       filters.push('mc.course_id = ?');
       params.push(query.course_id);
     }
+    if (query.status !== undefined) {
+      filters.push('mc.status = ?');
+      params.push(query.status);
+    }
 
-    const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    const whereClause = `WHERE ${filters.join(' AND ')}`;
 
     const data = await this.dataSource.query(
-      `SELECT mc.module_id, mc.course_id, mc.tri, mc.created_at, mc.updated_at,
+      `SELECT mc.module_id, mc.course_id, mc.tri, mc.volume, mc.coefficient, mc.status, mc.created_at, mc.updated_at,
               m.id as moduleId, m.intitule as module_title,
               c.id as courseId, c.intitule as course_title
          FROM module_course mc
@@ -100,13 +129,13 @@ export class ModuleCourseService implements OnModuleInit {
 
   async findOne(moduleId: number, courseId: number) {
     const [row] = await this.dataSource.query(
-      `SELECT mc.module_id, mc.course_id, mc.tri, mc.created_at, mc.updated_at,
+      `SELECT mc.module_id, mc.course_id, mc.tri, mc.volume, mc.coefficient, mc.status, mc.created_at, mc.updated_at,
               m.id as moduleId, m.intitule as module_title,
               c.id as courseId, c.intitule as course_title
          FROM module_course mc
          LEFT JOIN modules m ON mc.module_id = m.id
          LEFT JOIN courses c ON mc.course_id = c.id
-        WHERE mc.module_id = ? AND mc.course_id = ?`,
+        WHERE mc.module_id = ? AND mc.course_id = ? AND mc.status <> -2`,
       [moduleId, courseId],
     );
 
@@ -123,10 +152,13 @@ export class ModuleCourseService implements OnModuleInit {
     const existing = await this.findOne(moduleId, courseId);
 
     const tri = dto.tri ?? existing.tri;
+    const volume = dto.volume !== undefined ? dto.volume : existing.volume;
+    const coefficient = dto.coefficient !== undefined ? dto.coefficient : existing.coefficient;
+    const status = dto.status !== undefined ? dto.status : existing.status;
 
     await this.dataSource.query(
-      'UPDATE module_course SET tri = ?, updated_at = CURRENT_TIMESTAMP WHERE module_id = ? AND course_id = ?',
-      [tri, moduleId, courseId],
+      'UPDATE module_course SET tri = ?, volume = ?, coefficient = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE module_id = ? AND course_id = ?',
+      [tri, volume, coefficient, status, moduleId, courseId],
     );
 
     return this.findOne(moduleId, courseId);
@@ -135,8 +167,9 @@ export class ModuleCourseService implements OnModuleInit {
   async remove(moduleId: number, courseId: number): Promise<void> {
     await this.ensureSchema();
 
+    // Soft delete: set status to -2 (deleted)
     const result = await this.dataSource.query(
-      'DELETE FROM module_course WHERE module_id = ? AND course_id = ?',
+      'UPDATE module_course SET status = -2, updated_at = CURRENT_TIMESTAMP WHERE module_id = ? AND course_id = ? AND status <> -2',
       [moduleId, courseId],
     );
 
@@ -147,7 +180,7 @@ export class ModuleCourseService implements OnModuleInit {
 
   private async getNextTriForCourse(courseId: number): Promise<number> {
     const [row] = await this.dataSource.query(
-      'SELECT COUNT(*) as total FROM module_course WHERE course_id = ?',
+      'SELECT COUNT(*) as total FROM module_course WHERE course_id = ? AND status <> -2',
       [courseId],
     );
     return Number(row?.total ?? 0);
@@ -158,6 +191,9 @@ export class ModuleCourseService implements OnModuleInit {
       module_id: row.module_id,
       course_id: row.course_id,
       tri: Number(row.tri ?? 0),
+      volume: row.volume !== null && row.volume !== undefined ? Number(row.volume) : null,
+      coefficient: row.coefficient !== null && row.coefficient !== undefined ? Number(row.coefficient) : null,
+      status: Number(row.status ?? 1),
       created_at: row.created_at,
       updated_at: row.updated_at,
       module: row.moduleId
@@ -175,4 +211,3 @@ export class ModuleCourseService implements OnModuleInit {
     };
   }
 }
-

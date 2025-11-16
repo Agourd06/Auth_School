@@ -43,7 +43,7 @@ export class ModuleCourseController {
   }
 
   @Delete(':module_id/:course_id')
-  @ApiResponse({ status: 200, description: 'Remove module-course relation.' })
+  @ApiResponse({ status: 200, description: 'Soft delete module-course relation (sets status to -2).' })
   remove(
     @Param('module_id', ParseIntPipe) moduleId: number,
     @Param('course_id', ParseIntPipe) courseId: number,
@@ -51,4 +51,3 @@ export class ModuleCourseController {
     return this.moduleCourseService.remove(moduleId, courseId);
   }
 }
-
