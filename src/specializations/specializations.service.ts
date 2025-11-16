@@ -53,7 +53,9 @@ export class SpecializationsService {
     // Always filter by company_id from authenticated user
     qb.andWhere('s.company_id = :company_id', { company_id: companyId });
 
-    if (query.search) qb.andWhere('s.title LIKE :search', { search: `%${query.search}%` });
+    if (query.search) {
+      qb.andWhere('(s.title LIKE :search OR s.description LIKE :search)', { search: `%${query.search}%` });
+    }
     if (query.status !== undefined) qb.andWhere('s.status = :status', { status: query.status });
     if (query.program_id) qb.andWhere('s.program_id = :program_id', { program_id: query.program_id });
 

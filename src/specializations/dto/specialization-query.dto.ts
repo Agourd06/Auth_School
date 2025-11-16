@@ -5,7 +5,7 @@ import { Type } from 'class-transformer';
 export class SpecializationQueryDto extends PaginationDto {
   @IsOptional()
   @IsString()
-  search?: string; // title
+  search?: string; // title or description
 
   @IsOptional()
   @Type(() => Number)

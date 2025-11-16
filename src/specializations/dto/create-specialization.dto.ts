@@ -8,6 +8,11 @@ export class CreateSpecializationDto {
   @IsNotEmpty()
   title: string;
 
+  @ApiPropertyOptional({ description: 'Specialization description', example: 'A comprehensive program covering software development principles' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
   @ApiProperty({ description: 'Owning program identifier', example: 3 })
   @Type(() => Number)
   @IsNumber()

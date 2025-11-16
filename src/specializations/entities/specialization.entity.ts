@@ -11,6 +11,9 @@ export class Specialization {
   @Column()
   title: string;
 
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
   @Column({ type: 'int', default: 1 })
   status: number;
 
