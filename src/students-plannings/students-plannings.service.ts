@@ -13,6 +13,7 @@ import { ClassEntity } from '../class/entities/class.entity';
 import { ClassRoom } from '../class-rooms/entities/class-room.entity';
 import { PlanningSessionType } from '../planning-session-types/entities/planning-session-type.entity';
 import { SchoolYear } from '../school-years/entities/school-year.entity';
+import { Course } from '../course/entities/course.entity';
 
 @Injectable()
 export class StudentsPlanningsService {
@@ -23,6 +24,8 @@ export class StudentsPlanningsService {
     private readonly teacherRepo: Repository<Teacher>,
     @InjectRepository(Specialization)
     private readonly specializationRepo: Repository<Specialization>,
+    @InjectRepository(Course)
+    private readonly courseRepo: Repository<Course>,
     @InjectRepository(ClassEntity)
     private readonly classRepo: Repository<ClassEntity>,
     @InjectRepository(ClassRoom)
@@ -48,6 +51,14 @@ export class StudentsPlanningsService {
     });
     if (!specialization) {
       throw new NotFoundException(`Specialization with ID ${dto.specialization_id} not found or does not belong to your company`);
+    }
+
+    // Verify course exists and belongs to the same company
+    const course = await this.courseRepo.findOne({
+      where: { id: dto.course_id, company_id: companyId, status: Not(-2) },
+    });
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${dto.course_id} not found or does not belong to your company`);
     }
 
     // Verify class exists and belongs to the same company
@@ -111,6 +122,7 @@ export class StudentsPlanningsService {
       .createQueryBuilder('plan')
       .leftJoinAndSelect('plan.teacher', 'teacher')
       .leftJoinAndSelect('plan.specialization', 'specialization')
+      .leftJoinAndSelect('plan.course', 'course')
       .leftJoinAndSelect('plan.class', 'class')
       .leftJoinAndSelect('plan.classRoom', 'classRoom')
       .leftJoinAndSelect('plan.company', 'company')
@@ -127,6 +139,7 @@ export class StudentsPlanningsService {
     if (query.class_room_id) qb.andWhere('plan.class_room_id = :class_room_id', { class_room_id: query.class_room_id });
     if (query.teacher_id) qb.andWhere('plan.teacher_id = :teacher_id', { teacher_id: query.teacher_id });
     if (query.specialization_id) qb.andWhere('plan.specialization_id = :specialization_id', { specialization_id: query.specialization_id });
+    if (query.course_id) qb.andWhere('plan.course_id = :course_id', { course_id: query.course_id });
     if (query.planning_session_type_id) qb.andWhere('plan.planning_session_type_id = :planning_session_type_id', { planning_session_type_id: query.planning_session_type_id });
     if (query.school_year_id) qb.andWhere('plan.school_year_id = :school_year_id', { school_year_id: query.school_year_id });
 
@@ -140,7 +153,7 @@ export class StudentsPlanningsService {
   async findOne(id: number, companyId: number): Promise<StudentsPlanning> {
     const found = await this.repo.findOne({
       where: { id, company_id: companyId, status: Not(-2) },
-      relations: ['teacher', 'specialization', 'class', 'classRoom', 'company', 'planningSessionType', 'schoolYear'],
+      relations: ['teacher', 'specialization', 'course', 'class', 'classRoom', 'company', 'planningSessionType', 'schoolYear'],
     });
     if (!found) throw new NotFoundException('Planning record not found');
     return found;
@@ -156,6 +169,16 @@ export class StudentsPlanningsService {
       });
       if (!teacher) {
         throw new NotFoundException(`Teacher with ID ${dto.teacher_id} not found or does not belong to your company`);
+      }
+    }
+
+    // If course_id is being updated, verify it belongs to the same company
+    if (dto.course_id !== undefined) {
+      const course = await this.courseRepo.findOne({
+        where: { id: dto.course_id, company_id: companyId, status: Not(-2) },
+      });
+      if (!course) {
+        throw new NotFoundException(`Course with ID ${dto.course_id} not found or does not belong to your company`);
       }
     }
 

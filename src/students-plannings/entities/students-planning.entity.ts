@@ -6,6 +6,7 @@ import { ClassRoom } from '../../class-rooms/entities/class-room.entity';
 import { Company } from '../../company/entities/company.entity';
 import { PlanningSessionType } from '../../planning-session-types/entities/planning-session-type.entity';
 import { SchoolYear } from '../../school-years/entities/school-year.entity';
+import { Course } from '../../course/entities/course.entity';
 
 @Entity('planning_students')
 export class StudentsPlanning {
@@ -28,6 +29,13 @@ export class StudentsPlanning {
   @ManyToOne(() => Specialization, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'specialization_id' })
   specialization: Specialization;
+  
+  @Column()
+  course_id: number;
+
+  @ManyToOne(() => Course, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'course_id' })
+  course: Course;
 
   @Column()
   class_id: number;

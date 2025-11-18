@@ -9,9 +9,10 @@ import { ClassEntity } from '../class/entities/class.entity';
 import { ClassRoom } from '../class-rooms/entities/class-room.entity';
 import { PlanningSessionType } from '../planning-session-types/entities/planning-session-type.entity';
 import { SchoolYear } from '../school-years/entities/school-year.entity';
+import { Course } from '../course/entities/course.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([StudentsPlanning, Teacher, Specialization, ClassEntity, ClassRoom, PlanningSessionType, SchoolYear])],
+  imports: [TypeOrmModule.forFeature([StudentsPlanning, Teacher, Specialization, Course, ClassEntity, ClassRoom, PlanningSessionType, SchoolYear])],
   controllers: [StudentsPlanningsController],
   providers: [StudentsPlanningsService],
   exports: [StudentsPlanningsService],

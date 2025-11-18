@@ -36,6 +36,12 @@ export class StudentsPlanningQueryDto extends PaginationDto {
   @IsNumber()
   specialization_id?: number;
 
+  @ApiPropertyOptional({ description: 'Filter by course identifier', example: 12 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  course_id?: number;
+
   @ApiPropertyOptional({ description: 'Filter by planning session type identifier', example: 4 })
   @IsOptional()
   @Type(() => Number)

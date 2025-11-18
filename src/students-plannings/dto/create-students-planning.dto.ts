@@ -22,6 +22,11 @@ export class CreateStudentsPlanningDto {
   @IsNumber()
   specialization_id: number;
 
+  @ApiProperty({ description: 'Course identifier', example: 12 })
+  @Type(() => Number)
+  @IsNumber()
+  course_id: number;
+
   @ApiProperty({ description: 'Class identifier', example: 3 })
   @Type(() => Number)
   @IsNumber()
