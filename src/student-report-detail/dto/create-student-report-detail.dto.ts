@@ -23,6 +23,11 @@ export class CreateStudentReportDetailDto {
   @IsString()
   remarks?: string;
 
+  @ApiPropertyOptional({ description: 'Additional note for this detail', example: 'Needs improvement in homework consistency.' })
+  @IsOptional()
+  @IsString()
+  note?: string;
+
   @ApiPropertyOptional({ description: 'Status code (matches school year statut)', example: 2, default: 2 })
   @IsOptional()
   @Type(() => Number)

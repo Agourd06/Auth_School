@@ -5,9 +5,10 @@ import { StudentReportController } from './student-report.controller';
 import { StudentReport } from './entities/student-report.entity';
 import { Student } from '../students/entities/student.entity';
 import { SchoolYearPeriod } from '../school-year-periods/entities/school-year-period.entity';
+import { SchoolYear } from '../school-years/entities/school-year.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([StudentReport, Student, SchoolYearPeriod])],
+  imports: [TypeOrmModule.forFeature([StudentReport, Student, SchoolYearPeriod, SchoolYear])],
   controllers: [StudentReportController],
   providers: [StudentReportService],
   exports: [StudentReportService],

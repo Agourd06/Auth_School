@@ -32,6 +32,9 @@ export class StudentReportDetail {
   @Column({ type: 'longtext', nullable: true })
   remarks?: string;
 
+  @Column({ type: 'longtext', nullable: true })
+  note?: string;
+
   @Column({ type: 'int', default: 2, name: 'statut' })
   status: number;
 

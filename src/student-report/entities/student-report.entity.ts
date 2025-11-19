@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { SchoolYear } from '../../school-years/entities/school-year.entity';
 import { SchoolYearPeriod } from '../../school-year-periods/entities/school-year-period.entity';
 import { Student } from '../../students/entities/student.entity';
 import { StudentReportDetail } from '../../student-report-detail/entities/student-report-detail.entity';
@@ -14,6 +15,13 @@ export class StudentReport {
   @ManyToOne(() => SchoolYearPeriod, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'school_year_period_id' })
   period: SchoolYearPeriod;
+
+  @Column()
+  school_year_id: number;
+
+  @ManyToOne(() => SchoolYear, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'school_year_id' })
+  year: SchoolYear;
 
   @Column()
   student_id: number;

@@ -9,6 +9,7 @@ import { PaginatedResponseDto } from '../common/dto/pagination.dto';
 import { PaginationService } from '../common/services/pagination.service';
 import { Student } from '../students/entities/student.entity';
 import { SchoolYearPeriod } from '../school-year-periods/entities/school-year-period.entity';
+import { SchoolYear } from '../school-years/entities/school-year.entity';
 
 @Injectable()
 export class StudentReportService {
@@ -19,6 +20,8 @@ export class StudentReportService {
     private readonly studentRepo: Repository<Student>,
     @InjectRepository(SchoolYearPeriod)
     private readonly periodRepo: Repository<SchoolYearPeriod>,
+    @InjectRepository(SchoolYear)
+    private readonly schoolYearRepo: Repository<SchoolYear>,
   ) {}
 
   async create(dto: CreateStudentReportDto, companyId: number): Promise<StudentReport> {
@@ -30,12 +33,27 @@ export class StudentReportService {
       throw new NotFoundException(`Student with ID ${dto.student_id} not found or does not belong to your company`);
     }
 
-    // Verify school year period exists and belongs to the same company
+    // Verify school year exists and belongs to the same company
+    const schoolYear = await this.schoolYearRepo.findOne({
+      where: { id: dto.school_year_id, status: Not(-2) },
+      relations: ['company'],
+    });
+    if (!schoolYear) {
+      throw new NotFoundException(`School year with ID ${dto.school_year_id} not found`);
+    }
+    if (schoolYear.company?.id !== companyId) {
+      throw new BadRequestException('School year does not belong to your company');
+    }
+
+    // Verify school year period exists, belongs to the same company, and matches the provided year
     const period = await this.periodRepo.findOne({
       where: { id: dto.school_year_period_id, company_id: companyId, status: Not(-2) },
     });
     if (!period) {
       throw new NotFoundException(`School year period with ID ${dto.school_year_period_id} not found or does not belong to your company`);
+    }
+    if (period.school_year_id !== dto.school_year_id) {
+      throw new BadRequestException('School year period does not belong to the provided school year');
     }
 
     const entity = this.repo.create({
@@ -56,6 +74,7 @@ export class StudentReportService {
       .createQueryBuilder('report')
       .leftJoinAndSelect('report.student', 'student')
       .leftJoinAndSelect('report.period', 'period')
+      .leftJoinAndSelect('report.year', 'year')
       .orderBy('report.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -82,6 +101,10 @@ export class StudentReportService {
       qb.andWhere('report.passed = :passed', { passed: query.passed });
     }
 
+    if (query.school_year_id) {
+      qb.andWhere('report.school_year_id = :school_year_id', { school_year_id: query.school_year_id });
+    }
+
     const [data, total] = await qb.getManyAndCount();
     return PaginationService.createResponse(data, page, limit, total);
   }
@@ -89,7 +112,7 @@ export class StudentReportService {
   async findOne(id: number, companyId: number): Promise<StudentReport> {
     const found = await this.repo.findOne({
       where: { id, status: Not(-2) },
-      relations: ['student', 'period'],
+      relations: ['student', 'period', 'year'],
     });
     if (!found) {
       throw new NotFoundException('Student report not found');
@@ -114,6 +137,20 @@ export class StudentReportService {
       }
     }
 
+    // If school_year_id is being updated, verify it belongs to the same company
+    if (dto.school_year_id !== undefined) {
+      const schoolYear = await this.schoolYearRepo.findOne({
+        where: { id: dto.school_year_id, status: Not(-2) },
+        relations: ['company'],
+      });
+      if (!schoolYear) {
+        throw new NotFoundException(`School year with ID ${dto.school_year_id} not found`);
+      }
+      if (schoolYear.company?.id !== companyId) {
+        throw new BadRequestException('School year does not belong to your company');
+      }
+    }
+
     // If school_year_period_id is being updated, verify it belongs to the same company
     if (dto.school_year_period_id !== undefined) {
       const period = await this.periodRepo.findOne({
@@ -121,6 +158,20 @@ export class StudentReportService {
       });
       if (!period) {
         throw new NotFoundException(`School year period with ID ${dto.school_year_period_id} not found or does not belong to your company`);
+      }
+      const targetYearId = dto.school_year_id ?? existing.school_year_id;
+      if (targetYearId && period.school_year_id !== targetYearId) {
+        throw new BadRequestException('School year period does not belong to the provided school year');
+      }
+    }
+
+    if (dto.school_year_id !== undefined && dto.school_year_period_id === undefined) {
+      // Ensure current period still matches the new year
+      const period = await this.periodRepo.findOne({
+        where: { id: existing.school_year_period_id, company_id: companyId, status: Not(-2) },
+      });
+      if (period && period.school_year_id !== dto.school_year_id) {
+        throw new BadRequestException('Existing school year period does not belong to the new school year');
       }
     }
 

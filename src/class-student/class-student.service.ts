@@ -65,6 +65,8 @@ export class ClassStudentService {
       .leftJoinAndSelect('cs.company', 'company');
 
     qb.andWhere('cs.status <> :deletedStatus', { deletedStatus: -2 });
+    qb.andWhere('student.status <> :studentDeletedStatus', { studentDeletedStatus: -2 });
+    qb.andWhere('class.status <> :classDeletedStatus', { classDeletedStatus: -2 });
     // Always filter by company_id from authenticated user
     qb.andWhere('cs.company_id = :company_id', { company_id: companyId });
 
@@ -94,6 +96,10 @@ export class ClassStudentService {
     });
 
     if (!found) {
+      throw new NotFoundException('Class student assignment not found');
+    }
+
+    if (!found.student || found.student.status === -2 || !found.class || found.class.status === -2) {
       throw new NotFoundException('Class student assignment not found');
     }
 

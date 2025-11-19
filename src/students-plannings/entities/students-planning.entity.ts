@@ -36,7 +36,7 @@ export class StudentsPlanning {
   @ManyToOne(() => Course, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'course_id' })
   course: Course;
-
+  
   @Column()
   class_id: number;
 

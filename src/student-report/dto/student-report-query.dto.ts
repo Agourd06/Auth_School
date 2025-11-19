@@ -23,6 +23,12 @@ export class StudentReportQueryDto extends PaginationDto {
   @IsNumber()
   school_year_period_id?: number;
 
+  @ApiPropertyOptional({ description: 'Filter by school year identifier', example: 3 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  school_year_id?: number;
+
   @ApiPropertyOptional({ description: 'Filter by pass flag', example: true })
   @IsOptional()
   @Type(() => Boolean)

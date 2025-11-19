@@ -8,6 +8,11 @@ export class CreateStudentReportDto {
   @IsNumber()
   school_year_period_id: number;
 
+  @ApiProperty({ description: 'School year identifier', example: 3 })
+  @Type(() => Number)
+  @IsNumber()
+  school_year_id: number;
+
   @ApiProperty({ description: 'Student identifier', example: 45 })
   @Type(() => Number)
   @IsNumber()
