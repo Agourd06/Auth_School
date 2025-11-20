@@ -10,6 +10,7 @@ import {
 import { StudentsPlanning } from '../../students-plannings/entities/students-planning.entity';
 import { Student } from '../../students/entities/student.entity';
 import { Company } from '../../company/entities/company.entity';
+import { StudentReport } from '../../student-report/entities/student-report.entity';
 
 @Entity('student_presence')
 export class StudentPresence {
@@ -45,6 +46,16 @@ export class StudentPresence {
   @ManyToOne(() => Company, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'company_id' })
   company?: Company;
+
+  @Column({ nullable: true })
+  report_id?: number;
+
+  @ManyToOne(() => StudentReport, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'report_id' })
+  studentReport?: StudentReport;
+
+  @Column({ type: 'boolean', default: false, name: 'validate_report' })
+  validate_report: boolean;
 
   @Column({ type: 'int', default: 2, name: 'statut' })
   status: number;

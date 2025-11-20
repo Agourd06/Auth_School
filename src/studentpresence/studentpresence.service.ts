@@ -9,6 +9,7 @@ import { PaginatedResponseDto } from '../common/dto/pagination.dto';
 import { PaginationService } from '../common/services/pagination.service';
 import { Student } from '../students/entities/student.entity';
 import { StudentsPlanning } from '../students-plannings/entities/students-planning.entity';
+import { StudentReport } from '../student-report/entities/student-report.entity';
 
 @Injectable()
 export class StudentPresenceService {
@@ -19,6 +20,8 @@ export class StudentPresenceService {
     private readonly studentRepo: Repository<Student>,
     @InjectRepository(StudentsPlanning)
     private readonly planningRepo: Repository<StudentsPlanning>,
+    @InjectRepository(StudentReport)
+    private readonly reportRepo: Repository<StudentReport>,
   ) {}
 
   async create(dto: CreateStudentPresenceDto, companyId: number): Promise<StudentPresence> {
@@ -38,6 +41,8 @@ export class StudentPresenceService {
       throw new NotFoundException(`Student planning with ID ${dto.student_planning_id} not found or does not belong to your company`);
     }
 
+    const report = dto.report_id !== undefined ? await this.validateStudentReport(dto.report_id, companyId, dto.student_id) : null;
+
     // Always set company_id from authenticated user
     const entity = this.repo.create({
       ...dto,
@@ -45,6 +50,8 @@ export class StudentPresenceService {
       note: dto.note ?? -1,
       status: dto.status ?? 2,
       company_id: companyId,
+      studentReport: report ?? undefined,
+      validate_report: dto.validate_report ?? false,
     });
 
     const saved = await this.repo.save(entity);
@@ -60,6 +67,7 @@ export class StudentPresenceService {
       .leftJoinAndSelect('presence.student', 'student')
       .leftJoinAndSelect('presence.studentPlanning', 'studentPlanning')
       .leftJoinAndSelect('presence.company', 'company')
+      .leftJoinAndSelect('presence.studentReport', 'studentReport')
       .orderBy('presence.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -82,6 +90,10 @@ export class StudentPresenceService {
       });
     }
 
+    if (query.report_id) {
+      qb.andWhere('presence.report_id = :report_id', { report_id: query.report_id });
+    }
+
     const [data, total] = await qb.getManyAndCount();
     return PaginationService.createResponse(data, page, limit, total);
   }
@@ -89,7 +101,7 @@ export class StudentPresenceService {
   async findOne(id: number, companyId: number): Promise<StudentPresence> {
     const found = await this.repo.findOne({
       where: { id, company_id: companyId, status: Not(-2) },
-      relations: ['student', 'studentPlanning', 'company'],
+      relations: ['student', 'studentPlanning', 'company', 'studentReport'],
     });
     if (!found) {
       throw new NotFoundException('Student presence record not found');
@@ -120,9 +132,19 @@ export class StudentPresenceService {
       }
     }
 
+    // If report_id is being updated, verify it belongs to the student & company
+    let validatedReport: StudentReport | undefined;
+    if (dto.report_id !== undefined) {
+      const targetStudentId = dto.student_id ?? existing.student_id;
+      validatedReport = await this.validateStudentReport(dto.report_id, companyId, targetStudentId);
+    }
+
     // Prevent changing company_id - always use authenticated user's company
-    const dtoWithoutCompany = { ...dto };
+    const dtoWithoutCompany: any = { ...dto };
     delete (dtoWithoutCompany as any).company_id;
+    if (validatedReport) {
+      dtoWithoutCompany.studentReport = validatedReport;
+    }
 
     const merged = this.repo.merge(existing, dtoWithoutCompany);
     // Ensure company_id remains from authenticated user
@@ -136,5 +158,19 @@ export class StudentPresenceService {
     const existing = await this.findOne(id, companyId);
     existing.status = -2;
     await this.repo.save(existing);
+  }
+
+  private async validateStudentReport(reportId: number, companyId: number, studentId: number): Promise<StudentReport> {
+    const report = await this.reportRepo.findOne({
+      where: { id: reportId, status: Not(-2) },
+      relations: ['student'],
+    });
+    if (!report || report.student?.company_id !== companyId) {
+      throw new NotFoundException(`Student report with ID ${reportId} not found or does not belong to your company`);
+    }
+    if (report.student_id !== studentId) {
+      throw new BadRequestException('The provided student report does not belong to the specified student');
+    }
+    return report;
   }
 }

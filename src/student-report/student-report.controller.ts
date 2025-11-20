@@ -4,6 +4,7 @@ import { StudentReportService } from './student-report.service';
 import { CreateStudentReportDto } from './dto/create-student-report.dto';
 import { UpdateStudentReportDto } from './dto/update-student-report.dto';
 import { StudentReportQueryDto } from './dto/student-report-query.dto';
+import { ReportDashboardQueryDto } from './dto/report-dashboard-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Student Reports')
@@ -32,6 +33,17 @@ export class StudentReportController {
       throw new BadRequestException('User must belong to a company');
     }
     return this.studentReportService.findAll(query, companyId);
+  }
+
+  @Get('dashboard')
+  @UseGuards(JwtAuthGuard)
+  @ApiResponse({ status: 200, description: 'Retrieve aggregated planning/report data for dashboards.' })
+  getDashboard(@Request() req, @Query() query: ReportDashboardQueryDto) {
+    const companyId = req.user.company_id;
+    if (!companyId) {
+      throw new BadRequestException('User must belong to a company');
+    }
+    return this.studentReportService.getDashboard(query, companyId);
   }
 
   @Get(':id')

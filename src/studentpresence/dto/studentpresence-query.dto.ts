@@ -22,5 +22,11 @@ export class StudentPresenceQueryDto extends PaginationDto {
   @Type(() => Number)
   @IsNumber()
   student_planning_id?: number;
+
+  @ApiPropertyOptional({ description: 'Filter by student report identifier', example: 78 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  report_id?: number;
 }
 

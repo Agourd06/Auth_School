@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { CreateStudentReportDto } from './dto/create-student-report.dto';
 import { UpdateStudentReportDto } from './dto/update-student-report.dto';
 import { StudentReport } from './entities/student-report.entity';
@@ -10,6 +10,10 @@ import { PaginationService } from '../common/services/pagination.service';
 import { Student } from '../students/entities/student.entity';
 import { SchoolYearPeriod } from '../school-year-periods/entities/school-year-period.entity';
 import { SchoolYear } from '../school-years/entities/school-year.entity';
+import { ReportDashboardQueryDto } from './dto/report-dashboard-query.dto';
+import { ClassStudent } from '../class-student/entities/class-student.entity';
+import { StudentsPlanning } from '../students-plannings/entities/students-planning.entity';
+import { StudentPresence } from '../studentpresence/entities/studentpresence.entity';
 
 @Injectable()
 export class StudentReportService {
@@ -22,6 +26,12 @@ export class StudentReportService {
     private readonly periodRepo: Repository<SchoolYearPeriod>,
     @InjectRepository(SchoolYear)
     private readonly schoolYearRepo: Repository<SchoolYear>,
+    @InjectRepository(ClassStudent)
+    private readonly classStudentRepo: Repository<ClassStudent>,
+    @InjectRepository(StudentsPlanning)
+    private readonly planningRepo: Repository<StudentsPlanning>,
+    @InjectRepository(StudentPresence)
+    private readonly presenceRepo: Repository<StudentPresence>,
   ) {}
 
   async create(dto: CreateStudentReportDto, companyId: number): Promise<StudentReport> {
@@ -184,5 +194,137 @@ export class StudentReportService {
     const existing = await this.findOne(id, companyId);
     existing.status = -2;
     await this.repo.save(existing);
+  }
+
+  async getDashboard(query: ReportDashboardQueryDto, companyId: number): Promise<{
+    filters: Record<string, unknown>;
+    students: Array<{ student_id: number; student: Student; report?: StudentReport | null }>;
+    sessions: StudentsPlanning[];
+    presences: StudentPresence[];
+  }> {
+    const { class_id, school_year_id, school_year_period_id, period_label, student_id, course_id, teacher_id } = query;
+
+    const schoolYear = await this.schoolYearRepo.findOne({
+      where: { id: school_year_id, status: Not(-2) },
+      relations: ['company'],
+    });
+    if (!schoolYear) {
+      throw new NotFoundException(`School year with ID ${school_year_id} not found`);
+    }
+    if (schoolYear.company?.id !== companyId) {
+      throw new BadRequestException('School year does not belong to your company');
+    }
+
+    const period = await this.periodRepo.findOne({
+      where: { id: school_year_period_id, company_id: companyId, status: Not(-2) },
+    });
+    if (!period) {
+      throw new NotFoundException(`School year period with ID ${school_year_period_id} not found or does not belong to your company`);
+    }
+    if (period.school_year_id !== school_year_id) {
+      throw new BadRequestException('School year period does not belong to the provided school year');
+    }
+
+    const effectivePeriodLabel = period_label ?? period.title;
+
+    const studentsQb = this.classStudentRepo
+      .createQueryBuilder('classStudent')
+      .leftJoinAndSelect('classStudent.student', 'student')
+      .where('classStudent.class_id = :classId', { classId: class_id })
+      .andWhere('classStudent.status <> :deleted', { deleted: -2 })
+      .andWhere('student.status <> :studentDeleted', { studentDeleted: -2 })
+      .andWhere('student.company_id = :companyId', { companyId });
+
+    if (student_id) {
+      studentsQb.andWhere('classStudent.student_id = :studentId', { studentId: student_id });
+    }
+
+    const classStudents = await studentsQb.orderBy('student.last_name', 'ASC').addOrderBy('student.first_name', 'ASC').getMany();
+    const studentIds = classStudents.map(cs => cs.student_id);
+
+    const reportMap = new Map<number, StudentReport>();
+    if (studentIds.length > 0) {
+      const reports = await this.repo.find({
+        where: {
+          student_id: In(studentIds),
+          school_year_id,
+          school_year_period_id,
+          status: Not(-2),
+        },
+      });
+      reports.forEach(report => {
+        reportMap.set(report.student_id, report);
+      });
+    }
+
+    const studentsPayload = classStudents.map(cs => ({
+      student_id: cs.student_id,
+      student: cs.student,
+      report: reportMap.get(cs.student_id) ?? null,
+    }));
+
+    const sessionsQb = this.planningRepo
+      .createQueryBuilder('planning')
+      .leftJoinAndSelect('planning.course', 'course')
+      .leftJoinAndSelect('planning.teacher', 'teacher')
+      .leftJoinAndSelect('planning.classRoom', 'classRoom')
+      .leftJoinAndSelect('planning.planningSessionType', 'sessionType')
+      .where('planning.class_id = :classId', { classId: class_id })
+      .andWhere('planning.status <> :deleted', { deleted: -2 })
+      .andWhere('planning.company_id = :companyId', { companyId })
+      .andWhere('planning.school_year_id = :schoolYearId', { schoolYearId: school_year_id })
+      .andWhere('planning.period = :periodLabel', { periodLabel: effectivePeriodLabel });
+
+    if (course_id) {
+      sessionsQb.andWhere('planning.course_id = :courseId', { courseId: course_id });
+    }
+
+    if (teacher_id) {
+      sessionsQb.andWhere('planning.teacher_id = :teacherId', { teacherId: teacher_id });
+    }
+
+    const sessions = await sessionsQb.orderBy('planning.date_day', 'ASC').addOrderBy('planning.hour_start', 'ASC').getMany();
+
+    const presencesQb = this.presenceRepo
+      .createQueryBuilder('presence')
+      .leftJoinAndSelect('presence.student', 'presenceStudent')
+      .leftJoinAndSelect('presence.studentPlanning', 'presencePlanning')
+      .leftJoinAndSelect('presencePlanning.course', 'presenceCourse')
+      .leftJoinAndSelect('presencePlanning.teacher', 'presenceTeacher')
+      .where('presence.company_id = :companyId', { companyId })
+      .andWhere('presence.status <> :deleted', { deleted: -2 })
+      .andWhere('presence.note > :minNote', { minNote: -1 })
+      .andWhere('presencePlanning.class_id = :classId', { classId: class_id })
+      .andWhere('presencePlanning.school_year_id = :schoolYearId', { schoolYearId: school_year_id })
+      .andWhere('presencePlanning.period = :periodLabel', { periodLabel: effectivePeriodLabel });
+
+    if (student_id) {
+      presencesQb.andWhere('presence.student_id = :presenceStudentId', { presenceStudentId: student_id });
+    }
+
+    if (course_id) {
+      presencesQb.andWhere('presencePlanning.course_id = :presenceCourseId', { presenceCourseId: course_id });
+    }
+
+    if (teacher_id) {
+      presencesQb.andWhere('presencePlanning.teacher_id = :presenceTeacherId', { presenceTeacherId: teacher_id });
+    }
+
+    const presences = await presencesQb.orderBy('presencePlanning.date_day', 'ASC').addOrderBy('presencePlanning.hour_start', 'ASC').getMany();
+
+    return {
+      filters: {
+        class_id,
+        school_year_id,
+        school_year_period_id,
+        period_label: effectivePeriodLabel,
+        student_id: student_id ?? null,
+        course_id: course_id ?? null,
+        teacher_id: teacher_id ?? null,
+      },
+      students: studentsPayload,
+      sessions,
+      presences,
+    };
   }
 }

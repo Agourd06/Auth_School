@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsIn, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsInt, IsIn, IsNumber, IsOptional, IsString, IsBoolean } from 'class-validator';
 
 export class CreateStudentPresenceDto {
   @ApiProperty({ description: 'Related student planning identifier', example: 12 })
@@ -35,6 +35,18 @@ export class CreateStudentPresenceDto {
   @Type(() => Number)
   @IsNumber()
   company_id?: number;
+
+  @ApiPropertyOptional({ description: 'Related student report identifier', example: 78 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  report_id?: number;
+
+  @ApiPropertyOptional({ description: 'Whether the related report is validated', example: true, default: false })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  validate_report?: boolean;
 
   @ApiPropertyOptional({ description: 'Status code ', example: 2, default: 2 })
   @IsOptional()
