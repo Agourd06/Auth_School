@@ -271,9 +271,14 @@ export class StudentReportService {
       .leftJoinAndSelect('planning.planningSessionType', 'sessionType')
       .where('planning.class_id = :classId', { classId: class_id })
       .andWhere('planning.status <> :deleted', { deleted: -2 })
-      .andWhere('planning.company_id = :companyId', { companyId })
-      .andWhere('planning.school_year_id = :schoolYearId', { schoolYearId: school_year_id })
-      .andWhere('planning.period = :periodLabel', { periodLabel: effectivePeriodLabel });
+      .andWhere('planning.company_id = :companyId', { companyId });
+    
+    // Match by school_year_id if set in planning, or if NULL try to match by period string
+    // This handles both cases: planning with school_year_id set, and legacy planning with only period string
+    sessionsQb.andWhere(
+      '(planning.school_year_id = :schoolYearId OR (planning.school_year_id IS NULL AND planning.period = :periodLabel))',
+      { schoolYearId: school_year_id, periodLabel: effectivePeriodLabel }
+    );
 
     if (course_id) {
       sessionsQb.andWhere('planning.course_id = :courseId', { courseId: course_id });
@@ -287,16 +292,20 @@ export class StudentReportService {
 
     const presencesQb = this.presenceRepo
       .createQueryBuilder('presence')
+      .innerJoinAndSelect('presence.studentPlanning', 'presencePlanning')
       .leftJoinAndSelect('presence.student', 'presenceStudent')
-      .leftJoinAndSelect('presence.studentPlanning', 'presencePlanning')
       .leftJoinAndSelect('presencePlanning.course', 'presenceCourse')
       .leftJoinAndSelect('presencePlanning.teacher', 'presenceTeacher')
       .where('presence.company_id = :companyId', { companyId })
       .andWhere('presence.status <> :deleted', { deleted: -2 })
       .andWhere('presence.note > :minNote', { minNote: -1 })
-      .andWhere('presencePlanning.class_id = :classId', { classId: class_id })
-      .andWhere('presencePlanning.school_year_id = :schoolYearId', { schoolYearId: school_year_id })
-      .andWhere('presencePlanning.period = :periodLabel', { periodLabel: effectivePeriodLabel });
+      .andWhere('presencePlanning.class_id = :classId', { classId: class_id });
+    
+    // Match by school_year_id if set in planning, or if NULL try to match by period string
+    presencesQb.andWhere(
+      '(presencePlanning.school_year_id = :schoolYearId OR (presencePlanning.school_year_id IS NULL AND presencePlanning.period = :periodLabel))',
+      { schoolYearId: school_year_id, periodLabel: effectivePeriodLabel }
+    );
 
     if (student_id) {
       presencesQb.andWhere('presence.student_id = :presenceStudentId', { presenceStudentId: student_id });
