@@ -1,11 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { AppModule } from './app.module';
 import { ExcludeDeletedInterceptor } from './common/interceptors/exclude-deleted.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+  });
+
+  // Use Winston logger
+  app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
   
   app.enableCors({
     origin: true, 
@@ -47,12 +53,13 @@ async function bootstrap() {
       },
     });
   } else {
-    console.log('Swagger documentation is disabled in production.');
+    app.get(WINSTON_MODULE_NEST_PROVIDER).log('Swagger documentation is disabled in production.');
   }
 
   const port = process.env.PORT || 3000;
   
   await app.listen(port);
-  console.log(`🚀 Application is running on: http://localhost:${port}`);
+  const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
+  logger.log(`🚀 Application is running on: http://localhost:${port}`, 'Bootstrap');
 }
 bootstrap();

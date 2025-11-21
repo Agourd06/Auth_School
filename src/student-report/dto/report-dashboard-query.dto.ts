@@ -40,6 +40,18 @@ export class ReportDashboardQueryDto {
   @Type(() => Number)
   @IsNumber()
   teacher_id?: number;
+
+  @ApiPropertyOptional({ description: 'Optional page number when requesting paginated students', example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  page?: number;
+
+  @ApiPropertyOptional({ description: 'Optional page size (max 100) when requesting paginated students', example: 25 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  limit?: number;
 }
 
 

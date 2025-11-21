@@ -5,7 +5,7 @@ import { CreateStudentReportDto } from './dto/create-student-report.dto';
 import { UpdateStudentReportDto } from './dto/update-student-report.dto';
 import { StudentReport } from './entities/student-report.entity';
 import { StudentReportQueryDto } from './dto/student-report-query.dto';
-import { PaginatedResponseDto } from '../common/dto/pagination.dto';
+import { PaginatedResponseDto, PaginationMetaDto } from '../common/dto/pagination.dto';
 import { PaginationService } from '../common/services/pagination.service';
 import { Student } from '../students/entities/student.entity';
 import { SchoolYearPeriod } from '../school-year-periods/entities/school-year-period.entity';
@@ -199,10 +199,21 @@ export class StudentReportService {
   async getDashboard(query: ReportDashboardQueryDto, companyId: number): Promise<{
     filters: Record<string, unknown>;
     students: Array<{ student_id: number; student: Student; report?: StudentReport | null }>;
+    studentsPagination?: PaginationMetaDto;
     sessions: StudentsPlanning[];
     presences: StudentPresence[];
   }> {
-    const { class_id, school_year_id, school_year_period_id, period_label, student_id, course_id, teacher_id } = query;
+    const {
+      class_id,
+      school_year_id,
+      school_year_period_id,
+      period_label,
+      student_id,
+      course_id,
+      teacher_id,
+      page,
+      limit,
+    } = query;
 
     const schoolYear = await this.schoolYearRepo.findOne({
       where: { id: school_year_id, status: Not(-2) },
@@ -239,7 +250,24 @@ export class StudentReportService {
       studentsQb.andWhere('classStudent.student_id = :studentId', { studentId: student_id });
     }
 
-    const classStudents = await studentsQb.orderBy('student.last_name', 'ASC').addOrderBy('student.first_name', 'ASC').getMany();
+    const shouldPaginateStudents = limit !== undefined || page !== undefined;
+    const safePage = Math.max(page ?? 1, 1);
+    const safeLimit = Math.min(Math.max(limit ?? 25, 1), 100);
+
+    let classStudents: ClassStudent[];
+    let totalStudents: number;
+
+    if (shouldPaginateStudents) {
+      [classStudents, totalStudents] = await studentsQb
+        .orderBy('student.last_name', 'ASC')
+        .addOrderBy('student.first_name', 'ASC')
+        .skip((safePage - 1) * safeLimit)
+        .take(safeLimit)
+        .getManyAndCount();
+    } else {
+      classStudents = await studentsQb.orderBy('student.last_name', 'ASC').addOrderBy('student.first_name', 'ASC').getMany();
+      totalStudents = classStudents.length;
+    }
     const studentIds = classStudents.map(cs => cs.student_id);
 
     const reportMap = new Map<number, StudentReport>();
@@ -332,6 +360,7 @@ export class StudentReportService {
         teacher_id: teacher_id ?? null,
       },
       students: studentsPayload,
+      studentsPagination: shouldPaginateStudents ? PaginationService.createMeta(safePage, safeLimit, totalStudents) : undefined,
       sessions,
       presences,
     };

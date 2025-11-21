@@ -24,7 +24,12 @@ A NestJS-based authentication and school management system with JWT authenticati
    ```
 
 3. **Environment Setup**
-   Create a `.env` file in the root directory with the following variables:
+   Copy the `.env.example` file to `.env` and update the values:
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Then edit `.env` and update the following variables:
    ```env
    # Database Configuration
    DB_HOST=localhost
@@ -46,6 +51,10 @@ A NestJS-based authentication and school management system with JWT authenticati
    MAIL_PORT=587
    MAIL_USER=your_email@gmail.com
    MAIL_PASS=your_app_password
+
+   # Winston Logging Configuration
+   LOG_LEVEL=debug
+   LOG_DIR=logs
    ```
 
 4. **Database Setup**
@@ -867,6 +876,8 @@ npm run test:cov
 | `NODE_ENV` | Environment | development |
 | `JWT_SECRET` | JWT secret key | (required) |
 | `JWT_EXPIRES_IN` | JWT expiration | 24h |
+| `LOG_LEVEL` | Winston log level (error/warn/info/debug) | debug (dev), info (prod) |
+| `LOG_DIR` | Directory for log files | logs |
 
 ## 🤝 Contributing
 
